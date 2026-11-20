@@ -1,0 +1,8 @@
+{
+  "name": "UNSENT",
+  "description": "A quiet, privacy-first space for unsent letters, 9:16 feeling cards, and a deterministic zodiac and lunar writing almanac.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,107 @@
+# MASTER CONTEXT & DATA DOSSIER: SENSITIVE CREATIVE APP ECOSYSTEM
+
+## 1. YOUR ROLE & MISSION
+Act as a Principal Product Architect, Emotional UX Designer, and Senior Full-Stack Prompt Engineer. 
+I am uploading my complete research, product concepts, Vedic astrology (Rashi) dataset, design philosophy, and viral growth strategy. 
+
+Your job is to synthesize ALL of this data and generate **one complete, production-ready, copy-pasteable Master Build Prompt** (optimized for AI app builders like Google AI Studio Build Mode, Lovable, Cursor, or Claude Artifacts). 
+
+Before writing the final Master Build Prompt, briefly confirm whether I want:
+- **Option A:** A pure build of **UNSENT** (Letters Never Sent + Release Ritual),
+- **Option B:** A pure build of **DREAMER'S ALMANAC** (Daily Emotional Weather + Moon Phase + Playful Rashi Wisdom), or
+- **Option C (Recommended Flagship):** A **Unified Sanctuary App** that seamlessly combines *Unsent* (private letters & release ritual), *Feeling Cards* (feeling-to-art 9:16 journal), and *Dreamer's Almanac* (daily emotional weather + poetic Rashi/Moon lens) into one cohesive mobile-first experience.
+*(If I say "build Option C" or "start now", immediately output the full, uncompromising Master Build Prompt with zero placeholders.)*
+
+---
+
+## 2. FOUNDER & TARGET AUDIENCE DNA
+- **Builder & Core User Persona:** Sensitive, deeply feeling, creative, intuitive (Pisces-archetype) individuals (ages 18–30) who feel overwhelmed by life, overthink, struggle to verbalize heavy emotions, and feel alienated by clinical mental health apps or rigid productivity streak trackers.
+- **Core Emotional Need:** They do NOT want to be "fixed," lectured, or diagnosed. They want to feel **understood**, convert pain/overthinking into **aesthetic art**, and experience gentle **emotional release**.
+- **Brand Positioning Rule:** NEVER use medical or clinical words like "therapy," "treatment," "patient," "diagnosis," or "mental illness." Always frame the product as **"a creative space for your feelings."**
+- **Cultural & Linguistic Edge:** Must natively support **English, Hindi, Bengali, and Hinglish** (both UI switching and multi-script input/typography). Most polished aesthetic apps are English-only; supporting mother-tongue emotional expression unlocks a massive underserved audience across India and South Asia.
+
+---
+
+## 3. THE 5 PRODUCT CONCEPTS & VIRAL HOOKS
+
+### Concept 1: Feeling Cards (Feeling-to-Art 9:16 Journal)
+- **Core Loop:** User types or speaks one messy, raw thought (e.g., *"I feel behind everyone and tired of pretending"*). The app transforms it into a shareable **9:16 (1080x1920) aesthetic art card** with a 2–4 line poem, an emotional weather forecast (e.g., *"Foggy with a quiet chance of hope"*), a dynamic color mood, and soft ambient motion.
+- **Viral Hook:** Every exported card carries a subtle creator watermark at the bottom—making every Instagram Story or WhatsApp Status share an organic advertisement driven by identity expression (*"This is exactly me"*).
+
+### Concept 2: Unsent (Letters You'll Never Send)
+- **Core Loop:** User picks a recipient (*Ex, Mother, Father, Friend, Someone I lost, My past self, My future self, Myself right now, or Custom*), writes a distraction-free letter (with optional *"Need a spark?"* prompts and Web Speech API voice input), chooses a tactile paper texture (*Old Parchment, Midnight Blue, Rose Petal, Rain on Glass, Torn Notebook, Moonlit Ink*), and seals it with an animated red ink **"NEVER SENT"** stamp with the current date.
+- **Post-Seal Rituals:**
+  1. **Keep It:** Saves privately to *My Unsent Box* (device `localStorage`, protected by an optional 4-digit PIN lock).
+  2. **Share as Image:** Exports a 9:16 PNG card with an option to anonymize the recipient (*"To someone I loved"*).
+  3. **Let It Go (Cinematic Release):** Letter dissolves into glowing embers, ash, or floating paper birds and permanently deletes with the closing line: *"It's out of you now."*
+- **Viral Hook:** Taps directly into the massive *"Things I'll never send"* social media trend with a dedicated, screenshot-worthy visual format.
+
+### Concept 3: Message in a Bottle (Phase 2 — Post-Launch Community Layer)
+- **Core Loop:** User writes one anonymous feeling and "throws it into the sea." One stranger receives it and sends back a single kind, human reply. Zero profiles, zero follower counts, zero public comment sections, zero likes.
+- **Viral Hook:** Screenshots of unexpected kindness (*"A stranger understood me today"*). *Note: Keep out of v1 MVP until moderation scales.*
+
+### Concept 4: Dreamer's Almanac (Daily Ritual + Playful Rashi/Moon Layer)
+- **Core Loop:** A daily atmospheric check-in screen displaying today's **Moon Phase**, a poetic **Emotional Forecast** (*"Soft rain, clearing by evening"*), a gentle 1-line reflection prompt, and an optional **Vedic Rashi (Moon Sign) poetic insight** treated as reflective art rather than deterministic fortune-telling. Includes a monthly/annual **"Year in Feelings"** visual recap (like Spotify Wrapped).
+- **Viral Hook:** Daily identity sharing (people share emotional weather & zodiac aesthetics daily) + annual recap virality.
+
+### Concept 5: Voice to Mini-Film
+- **Core Loop:** User speaks for up to 30 seconds about their day/mood. Everything processes locally on-device (audio never leaves the phone unless exported) into a cinematic 9:16 reel pairing synced kinetic subtitles over ambient looping visuals and lo-fi soundscapes.
+- **Viral Hook:** Gives everyday people a "main character in an indie film" aesthetic ready for Reels/Shorts.
+
+---
+
+## 4. COMPLETE VEDIC ZODIAC (RASHI) & ASTROLOGY REFERENCE DATASET
+Use this structured dataset if integrating the Rashi / Lunar Wisdom layer into Dreamer's Almanac or user mood profiles:
+
+### A. Core Astrological Calculation Rules (For Future Backend/API Expansion)
+- **System:** Vedic *Nirayana* (Sidereal Zodiac) using **Lahiri Ayanamsa**, anchored to the user's **Chandra Rashi (Moon Sign)** rather than Western Tropical Sun Sign.
+- **Chart Lookup Rule:** In a Vedic birth chart, locate the house containing the **Moon (Chandra)**; the sign number (1 to 12) placed there defines the user's Rashi.
+- **Technical Stack for Full Ephemeris:** Python `pyswisseph` (Swiss Ephemeris) converting birth date, exact time, and lat/long coordinates into planetary longitudes, cross-referenced with real-time planetary transits (*Gochar*) and planetary periods (*Dashas*).
+- **Philosophical Framing:** Charts represent latent tendencies ("100 promises"), while timing (*Dasha*) and personal awareness shape how they manifest. Keep astrology poetic, reflective, and empowering—never fatalistic.
+
+### B. Master Lookup Table & Behavioral Nuances of All 12 Rashis
+1. **Mesha (Aries)** | #1 | Ruler: Mars (*Mangal*) | Element: Fire | Modality: Cardinal (*Chara*)
+   - *Traits:* Fierce, direct, action-oriented go-getter, natural risk-taker and initiator, unbothered by crowd opinion, fiercely protective when serving a cause or loved one.
+2. **Vrishabha (Taurus)** | #2 | Ruler: Venus (*Shukra*) | Element: Earth | Modality: Fixed (*Sthira*)
+   - *Traits:* Calm, grounded, patient endurance for long-term work, soft-spoken, drawn to beauty, cleanliness, comfort, and quality; deeply peaceful unless repeatedly provoked.
+3. **Mithuna (Gemini)** | #3 | Ruler: Mercury (*Budh*) | Element: Air | Modality: Mutable (*Dwiswabhava*)
+   - *Traits:* Expressive, witty, sociable, commercially sharp, fast communicator; appears playful on the surface but is a razor-sharp observer of human micro-details.
+4. **Karka (Cancer)** | #4 | Ruler: Moon (*Chandra*) | Element: Water | Modality: Cardinal (*Chara*)
+   - *Traits:* Deeply emotional, nurturing, carries a "home" wherever they go, cares for everyone else before themselves; experiences tidal mood shifts mirroring the 15-day waxing/waning lunar cycle.
+5. **Simha (Leo)** | #5 | Ruler: Sun (*Surya*) | Element: Fire | Modality: Fixed (*Sthira*)
+   - *Traits:* Natural leader and organizer; may look intimidating or proud from a distance, but is fiercely loyal and protective up close; bold, direct, and only softens for true love.
+6. **Kanya (Virgo)** | #6 | Ruler: Mercury (*Budh*) | Element: Earth | Modality: Mutable (*Dwiswabhava*)
+   - *Traits:* Lively, detail-focused, analytical yet appreciative of sensory beauty and worldly comforts; supports others' growth genuinely without envy.
+7. **Tula (Libra)** | #7 | Ruler: Venus (*Shukra*) | Element: Air | Modality: Cardinal (*Chara*)
+   - *Traits:* Fairness-driven balancer seeking harmony across wealth, relationships, health, and spirituality; naturally drawn to aesthetics, elegance, and thoughtful presentation.
+8. **Vrishchika (Scorpio)** | #8 | Ruler: Mars (*Mangal*) | Element: Water | Modality: Fixed (*Sthira*)
+   - *Traits:* Quiet and self-contained until crossed; possesses an elephant's memory, guards trust carefully after past hurt, and offers unbreakable loyalty once committed.
+9. **Dhanu (Sagittarius)** | #9 | Ruler: Jupiter (*Guru*) | Element: Fire | Modality: Mutable (*Dwiswabhava*)
+   - *Traits:* Confident, philosophical, endlessly curious seeker of wisdom from diverse sources, driven to turn knowledge into practical abundance and generosity.
+10. **Makara (Capricorn)** | #10 | Ruler: Saturn (*Shani*) | Element: Earth | Modality: Cardinal (*Chara*)
+    - *Traits:* Slow, deliberate, long-distance runner; takes time to open up in friendships/love, sees through fake or manipulative behavior instantly, values dignity and depth.
+11. **Kumbha (Aquarius)** | #11 | Ruler: Saturn (*Shani*) | Element: Air | Modality: Fixed (*Sthira*)
+    - *Traits:* Philosophical, drawn to mysticism/astrology, masters the superpower of emotional detachment, deeply absorbed in causes, routines, or unconventional ideas.
+12. **Meena (Pisces)** | #12 | Ruler: Jupiter (*Guru*) | Element: Water | Modality: Mutable (*Dwiswabhava*)
+    - *Traits:* Faith-driven, intuitive, willing to take bold leaps without safety nets, humble despite deep inner wisdom, unbothered by superficial status games, fundamentally self-reliant at soul level.
+
+---
+
+## 5. NON-NEGOTIABLE DESIGN, TECH & SAFETY ARCHITECTURE
+- **Visual Direction:** Moonlit, intimate, indie-cinema mood. Deep indigo (`#0e0b1a`), midnight slate (`#1b1740`), dusk violet (`#3a2f6b`), dusty rose (`#e8b4b8`), candle gold (`#d9b26f`), warm parchment (`#f5ead6`), crimson stamp (`#b3202a`). Subtle film grain overlay, floating dust/star particles, glassmorphism cards, plus a soft "Daylight Paper" theme toggle.
+- **Typography:** Expressive editorial serif (`Cormorant Garamond` / `Playfair Display`), clean UI sans (`Inter`), and script/handwriting fonts supporting Latin (`Caveat`), Bengali (`Hind Siliguri` / `Tiro Bangla`), and Devanagari Hindi (`Kalam` / `Tiro Devanagari Hindi`).
+- **Privacy-First Local Architecture:** Zero login walls, zero backend database required for v1. Everything persists locally via `localStorage` with an optional 4-digit PIN lock and an explicit privacy pledge: *"Your words stay on your device unless you choose to share them."*
+- **AI Integration (Optional & Graceful):** Optional Gemini API button (*"Hear a quiet reflection"* or *"Turn into a 4-line poem"*). System prompt strictly forbids advice, diagnosis, or clinical tone, matching the user's input language (EN/HI/BN/Hinglish). App must remain 100% functional offline/without API keys.
+- **Mandatory Crisis Safety Guardrail:** Client-side keyword/theme detection (across English, Hindi, Bengali, and Hinglish) for self-harm, suicide, or severe hopelessness. When triggered, suppress AI poem/reflection generation and gently display a warm, non-alarming human support card with a one-tap helpline button (configurable constant, defaulting to **India Tele-MANAS: 14416**) while never locking the user out of their own journal.
+- **Accessibility:** Mobile-first (`390px` viewport centered cleanly on desktop), high-contrast text, ARIA labels, and a *"Reduce Motion"* toggle.
+
+---
+
+## 6. ZERO-BUDGET VIRAL LAUNCH STRATEGY (CONTEXT FOR GROWTH FEATURES)
+- **Built-in Share Engine:** One-tap `1080x1920` (9:16) PNG export (`html-to-image` / `html2canvas` + Web Share API) engineered specifically for Instagram Stories, Reels backgrounds, and WhatsApp Status.
+- **Founder-Led Organic Content:** Daily Reels/Shorts showing real emotional cards + honest behind-the-scenes founder storytelling (*"I built this because I struggled too"*), plus interactive comment loops (*"Comment one feeling you can't say out loud, and I'll turn it into art"*).
+
+---
+
+## 7. YOUR OUTPUT INSTRUCTIONS
+1. Ask me which path I prefer (**Option A: Unsent**, **Option B: Dreamer's Almanac**, or **Option C: Unified Sanctuary combining Unsent + Feeling Cards + Rashi/Moon Almanac**)—OR if you want to be maximally helpful right now, **immediately generate the complete, copy-pasteable Master Build Prompt for Option C (Unified Sanctuary)** structured cleanly with Role, Concept, Screen-by-Screen UX Flow, 12-Rashi & Mood Data Structures, Design System CSS Variables, Safety Guardrails, and Component Architecture so I can paste it straight into Google AI Studio or Cursor.

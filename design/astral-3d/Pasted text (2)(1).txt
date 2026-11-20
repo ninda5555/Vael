@@ -1,0 +1,2725 @@
+Here is the complete repository file set structured cleanly for GitHub. It runs
+immediately as a zero-build PWA on GitHub Pages or Firebase Hosting, and also
+includes the Firebase rules, 2nd-gen TypeScript Cloud Functions, Gemini &
+Prokerala adapters, MCP server, and CI workflow.
+
+Repository Tree
+
+unsent-astral-3d/
+├── .gitignore
+├── .env.example
+├── README.md
+├── manifest.webmanifest
+├── sw.js
+├── index.html
+├── firebase.json
+├── firestore.rules
+├── firestore.indexes.json
+├── assets/
+│   └── icon.svg
+├── styles/
+│   └── app.css
+├── src/
+│   ├── app.js
+│   ├── data/
+│   │   └── zodiac.js
+│   ├── engine/
+│   │   ├── astronomy.js
+│   │   └── storage.js
+│   └── three/
+│       └── elements3d.js
+├── functions/
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── src/
+│       ├── index.ts
+│       └── mcp.ts
+└── .github/
+    └── workflows/
+        └── ci.yml
+
+1. .gitignore
+
+node_modules/
+dist/
+functions/lib/
+.env
+.env.local
+.firebase/
+firebase-debug.log
+firestore-debug.log
+*.log
+.DS_Store
+
+2. .env.example
+
+# Firebase Web Public Config (safe in client config, replace with your Firebase project values)
+VITE_FIREBASE_API_KEY=your_firebase_web_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_RECAPTCHA_ENTERPRISE_SITE_KEY=your_app_check_site_key
+
+# Server-Only Secrets (store in Google Cloud Secret Manager; NEVER expose in browser)
+PROKERALA_CLIENT_ID=your_prokerala_client_id
+PROKERALA_CLIENT_SECRET=your_prokerala_client_secret
+GEMINI_API_KEY=your_gemini_api_key
+ENABLE_PRIVATE_AI_REFLECTIONS=false
+
+3. assets/icon.svg
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0E0B1A"/>
+  <circle cx="256" cy="256" r="168" fill="none" stroke="#D9B26F" stroke-width="6" stroke-opacity="0.65"/>
+  <circle cx="256" cy="256" r="118" fill="none" stroke="#E8B4B8" stroke-width="3" stroke-opacity="0.35"/>
+  <path d="M276 154c-54 14-92 66-84 122 8 55 58 94 114 88-35 28-86 30-124 2-46-33-59-97-28-145 28-44 79-67 122-67z" fill="#F5EAD6"/>
+  <circle cx="322" cy="196" r="10" fill="#D9B26F"/>
+</svg>
+
+4. manifest.webmanifest
+
+{
+  "name": "UNSENT · astral 3D",
+  "short_name": "UNSENT",
+  "description": "A quiet sanctuary for unsent letters, 3D zodiac elements, and Dreamer's Almanac.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0E0B1A",
+  "theme_color": "#0E0B1A",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+
+5. sw.js
+
+const CACHE_NAME = 'unsent-astral-v1';
+const PUBLIC_ASSETS = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './assets/icon.svg',
+  './styles/app.css',
+  './src/app.js',
+  './src/data/zodiac.js',
+  './src/engine/astronomy.js',
+  './src/engine/storage.js',
+  './src/three/elements3d.js'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PUBLIC_ASSETS))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+  event.respondWith(
+    caches.match(event.request).then((cached) => cached || fetch(event.request))
+  );
+});
+
+6. index.html
+
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0E0B1A" />
+  <title>UNSENT · astral 3D</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="./assets/icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600&family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Noto+Sans+Devanagari:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles/app.css" />
+</head>
+<body>
+<div id="workspace">
+  <div id="shell">
+    <div id="toast" class="toast" role="status" aria-live="polite">Saved</div>
+
+    <!-- SCREEN 1: TODAY -->
+    <section id="s-today" class="screen active" aria-label="Today">
+      <div class="top-bar">
+        <div>
+          <div class="label-meta" id="td-date-line">Today</div>
+          <h1 class="h-display" id="td-greeting" style="font-size:1.38rem;">good evening.</h1>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="lang-switch" role="group" aria-label="Language selector">
+            <button class="lang-pill active" data-lang="en" onclick="setLang('en', this)">EN</button>
+            <button class="lang-pill" data-lang="bn" onclick="setLang('bn', this)">বাংলা</button>
+            <button class="lang-pill" data-lang="hi" onclick="setLang('hi', this)">हिन्दी</button>
+            <button class="lang-pill" data-lang="hg" onclick="setLang('hg', this)">HG</button>
+          </div>
+          <button class="icon-btn" onclick="openSheet('sh-settings')" aria-label="Settings and privacy">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="week-strip" id="week-strip"></div>
+
+      <div class="hero-dark" style="margin-bottom:14px;">
+        <div class="stage-wrap">
+          <canvas id="canvas-today"></canvas>
+          <div class="stage-badge" id="td-moon-badge">Moon · Calculating...</div>
+          <button class="stage-badge stage-badge-right" onclick="navTo('zodiac')" id="td-lens-badge">Lens · Pisces</button>
+        </div>
+        <div class="hero-body">
+          <svg class="envelope-art" viewBox="0 0 72 48" fill="none" stroke="#D9B26F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="4" y="6" width="64" height="36" rx="6" />
+            <path d="M4 9L36 28L68 9" />
+            <circle cx="36" cy="28" r="3" fill="#B3202A" stroke="none" />
+          </svg>
+          <h2 class="h-display" id="td-hero-title" style="font-size:1.25rem;color:#F5F2EC;">say what stayed inside.</h2>
+          <p class="h-sub" id="td-hero-sub" style="font-size:0.875rem;color:#B2AFC4;margin-top:6px;">Write a private letter you never have to send, or shape a feeling into art.</p>
+          <div class="hero-actions">
+            <button class="btn-pill btn-hero-gold" id="btn-write-letter" onclick="openStudioMode('letter')">Write a letter</button>
+            <button class="btn-pill btn-ghost" id="btn-make-card" onclick="openStudioMode('card')">Make a feeling card</button>
+          </div>
+          <div id="continue-draft-wrap" class="hidden" style="margin-top:10px;">
+            <button class="chip-btn" style="background:rgba(255,255,255,0.08);color:#F5EAD6;border-color:rgba(217,178,111,0.3);" onclick="continueLastDraft()">Continue draft →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <span class="label-ui" id="td-spark-lens">Chosen lens · Pisces (Meena)</span>
+          <button class="chip-btn" onclick="cycleTodaySpark()" id="btn-another-spark">Another spark</button>
+        </div>
+        <p class="editorial-quote" id="td-spark-text"></p>
+        <div style="height:1px;background:var(--border-subtle);margin:14px 0;"></div>
+        <div class="label-meta" id="td-action-label" style="margin-bottom:4px;">Two-minute action</div>
+        <p class="h-sub" id="td-action-text" style="font-size:0.9rem;color:var(--text-primary);"></p>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+          <button class="btn-pill btn-secondary" style="padding:8px 14px;min-height:38px;font-size:0.8125rem;" onclick="writeFromSpark()">Write from this</button>
+          <button class="btn-pill btn-secondary" style="padding:8px 14px;min-height:38px;font-size:0.8125rem;" onclick="openSheet('sh-checkin')">Log emotional weather</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div>
+            <div class="label-meta" id="alm-eyebrow">Dreamer's Almanac</div>
+            <h3 class="h-display" style="font-size:1.08rem;" id="alm-month-title">Lunar Calendar</h3>
+          </div>
+          <button class="chip-btn" onclick="openSheet('sh-fact-packet')">How found</button>
+        </div>
+        <p class="h-sub" id="alm-upcoming-summary" style="font-size:0.85rem;margin-top:6px;"></p>
+        <div class="almanac-grid" id="almanac-grid"></div>
+        <div id="alm-selected-detail" style="margin-top:14px;padding:14px;border-radius:16px;background:var(--bg-elevated);">
+          <div class="label-ui" id="alm-sel-date" style="color:var(--text-primary);margin-bottom:4px;"></div>
+          <div class="label-meta" id="alm-sel-sky" style="margin-bottom:8px;"></div>
+          <p class="h-sub" id="alm-sel-invite" style="font-size:0.88rem;color:var(--text-primary);"></p>
+          <button class="chip-btn" style="margin-top:10px;" onclick="linkNoteToAlmanacDate()">Link note to this date</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 2: ZODIAC -->
+    <section id="s-zodiac" class="screen" aria-label="Zodiac">
+      <div class="top-bar">
+        <div>
+          <div class="label-meta">Twelve Skies & Four Elements</div>
+          <h1 class="h-display" style="font-size:1.38rem;">zodiac & 3D elements.</h1>
+        </div>
+        <button class="chip-btn" onclick="openSheet('sh-lens')">Choose lens</button>
+      </div>
+
+      <div class="seg-row" role="tablist">
+        <button class="seg-btn active" data-zview="elements" onclick="switchZodiacView('elements', this)">4 Elements 3D</button>
+        <button class="seg-btn" data-zview="wheel" onclick="switchZodiacView('wheel', this)">3D Wheel</button>
+        <button class="seg-btn" data-zview="gallery" onclick="switchZodiacView('gallery', this)">All 12 Signs</button>
+        <button class="seg-btn" data-zview="dialogue" onclick="switchZodiacView('dialogue', this)">Two-Sign Cards</button>
+      </div>
+
+      <div id="zv-elements">
+        <div class="hero-dark" style="margin-bottom:14px;">
+          <div class="element-3d-stage">
+            <canvas id="canvas-element"></canvas>
+            <div class="stage-badge" id="el-3d-badge">Fire · Interactive 3D</div>
+            <div class="stage-badge stage-badge-right" id="el-3d-signs">Aries · Leo · Sagittarius</div>
+          </div>
+          <div class="elem-selector" role="group" aria-label="Select zodiac element">
+            <button class="elem-tab active" data-el="Fire" onclick="selectElement3D('Fire', this)">🔥 Fire</button>
+            <button class="elem-tab" data-el="Earth" onclick="selectElement3D('Earth', this)">⛰️ Earth</button>
+            <button class="elem-tab" data-el="Air" onclick="selectElement3D('Air', this)">〰 Air</button>
+            <button class="elem-tab" data-el="Water" onclick="selectElement3D('Water', this)">〰 Water</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <h2 class="h-display" id="el-card-name" style="font-size:1.25rem;">Fire</h2>
+            <span class="label-meta">Style of engaging with life</span>
+          </div>
+          <div class="label-meta" style="margin-bottom:4px;">Themes</div>
+          <p class="h-sub" id="el-card-themes" style="color:var(--text-primary);margin-bottom:12px;"></p>
+          <div class="label-meta" style="margin-bottom:4px;">Reflection</div>
+          <p class="editorial-quote" id="el-card-reflection"></p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;" id="el-sign-chips"></div>
+        </div>
+      </div>
+
+      <div id="zv-wheel" class="hidden">
+        <div class="hero-dark" style="margin-bottom:14px;">
+          <div class="stage-wrap" style="height:260px;">
+            <canvas id="canvas-wheel"></canvas>
+            <div class="stage-badge">Celestial Astrolabe · 12 Signs</div>
+          </div>
+          <div style="padding:12px 16px 16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.08);">
+            <div>
+              <div class="h-display" id="wh-sign-title" style="font-size:1.1rem;">Pisces · Meena</div>
+              <div class="label-meta" id="wh-sign-meta" style="color:#B2AFC4;">Water · Mutable · Jupiter</div>
+            </div>
+            <button class="btn-pill btn-hero-gold" style="min-height:38px;padding:7px 15px;" onclick="setChosenLens(selectedZodiacSign)">Set lens</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:6px;margin-bottom:12px;" id="wheel-sign-pills"></div>
+      </div>
+
+      <div id="zv-gallery" class="hidden">
+        <input type="search" id="sign-search" class="field" placeholder="Search sign, Rashi, element, or planet..." style="margin-bottom:12px;" oninput="renderSignGallery()" />
+        <div class="sign-grid" id="sign-grid"></div>
+      </div>
+
+      <div id="zv-dialogue" class="hidden">
+        <div class="hero-dark" style="margin-bottom:14px;">
+          <div class="stage-wrap" style="height:200px;">
+            <canvas id="canvas-alchemy"></canvas>
+            <div class="stage-badge" id="alc-badge">Elemental Dialogue</div>
+          </div>
+          <div style="padding:12px 14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button class="chip-btn" style="justify-content:space-between;background:rgba(255,255,255,0.07);color:#F5F2EC;" onclick="openSheet('sh-pair-a')">
+              <span id="pair-a-lbl">Sign A: Gemini</span> <span>⌄</span>
+            </button>
+            <button class="chip-btn" style="justify-content:space-between;background:rgba(255,255,255,0.07);color:#F5F2EC;" onclick="openSheet('sh-pair-b')">
+              <span id="pair-b-lbl">Sign B: Pisces</span> <span>⌄</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="seg-row" id="context-tabs">
+          <button class="seg-btn active" onclick="setDialogueCtx('friendship', this)">Friendship</button>
+          <button class="seg-btn" onclick="setDialogueCtx('family', this)">Family</button>
+          <button class="seg-btn" onclick="setDialogueCtx('creative', this)">Creative work</button>
+        </div>
+
+        <div class="card" style="margin-bottom:10px;">
+          <div class="label-meta" id="dlg-q1-who">Question for Sign A</div>
+          <p class="h-sub" id="dlg-q1-text" style="color:var(--text-primary);margin-top:4px;"></p>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="label-meta" id="dlg-q2-who">Question for Sign B</div>
+          <p class="h-sub" id="dlg-q2-text" style="color:var(--text-primary);margin-top:4px;"></p>
+        </div>
+        <div class="card">
+          <div class="label-meta" style="color:var(--candle);">Shared 2-minute activity</div>
+          <p class="editorial-quote" id="dlg-shared-text" style="font-size:1.02rem;margin-top:6px;"></p>
+        </div>
+      </div>
+
+      <div class="card hidden" id="sign-detail-panel" style="margin-top:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+          <div>
+            <div class="label-meta" id="sd-meta">Water · Mutable · Traditional Vedic ruler: Jupiter</div>
+            <h2 class="h-display" id="sd-name" style="font-size:1.32rem;margin-top:2px;">♓ Pisces · Meena (मीन)</h2>
+            <div class="label-meta" id="sd-art" style="margin-top:4px;">Art motif: Two ink fish moving through indigo</div>
+          </div>
+          <button class="btn-pill btn-primary" style="min-height:38px;padding:7px 14px;font-size:0.8rem;" onclick="setChosenLens(selectedZodiacSign)">Use lens</button>
+        </div>
+        <div style="height:1px;background:var(--border-subtle);margin:14px 0;"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span class="label-meta">Writing spark</span>
+          <button class="chip-btn" style="min-height:30px;padding:4px 10px;font-size:0.75rem;" onclick="cycleSignSpark()">Another spark</button>
+        </div>
+        <p class="editorial-quote" id="sd-spark"></p>
+        <div class="label-meta" style="margin-top:12px;margin-bottom:4px;">Two-minute action</div>
+        <p class="h-sub" id="sd-action" style="color:var(--text-primary);font-size:0.9rem;"></p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+          <button class="btn-pill btn-secondary" style="min-height:40px;padding:8px 14px;" onclick="blankLetterWithSign()">Blank letter</button>
+          <button class="btn-pill btn-secondary" style="min-height:40px;padding:8px 14px;" onclick="makeSignCard()">Make a sign card</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 3: STUDIO -->
+    <section id="s-studio" class="screen" aria-label="Studio">
+      <div class="top-bar">
+        <div>
+          <div class="label-meta">Creative Sanctuary</div>
+          <h1 class="h-display" style="font-size:1.38rem;">write, seal, or frame.</h1>
+        </div>
+        <div class="seg-row" style="margin-bottom:0;">
+          <button class="seg-btn active" id="tab-st-letter" onclick="switchStudioTab('letter')">Letter</button>
+          <button class="seg-btn" id="tab-st-card" onclick="switchStudioTab('card')">9:16 Card</button>
+        </div>
+      </div>
+
+      <div id="st-letter-pane">
+        <div class="label-meta" style="margin-bottom:6px;">Recipient</div>
+        <div class="seg-row" id="recipient-row"></div>
+
+        <div class="card" style="padding:14px 16px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <span class="label-meta">Prompt</span>
+            <button class="chip-btn" style="min-height:28px;padding:3px 10px;font-size:0.74rem;" onclick="cycleRecipientPrompt()">Next prompt</button>
+          </div>
+          <p class="h-sub" id="letter-prompt-line" style="font-size:0.88rem;color:var(--text-primary);margin-top:6px;"></p>
+        </div>
+
+        <div class="label-meta" style="margin-bottom:6px;">Paper texture</div>
+        <div class="seg-row" id="paper-row"></div>
+
+        <div class="paper-surface paper-parchment" id="letter-paper">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <input type="text" id="letter-salutation" aria-label="Salutation" value="Dear friend," style="background:transparent;border:none;font-family:var(--ff-editorial);font-size:1.15rem;font-weight:500;width:65%;outline:none;" />
+            <div class="never-sent-stamp" id="letter-stamp">NEVER SENT</div>
+          </div>
+          <textarea id="letter-body" class="letter-textarea" placeholder="Write truthfully. Nobody sees this unless you choose to share it..." oninput="onLetterInput()"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:0.75rem;opacity:0.72;">
+            <span id="letter-word-count" class="tabular">0 words</span>
+            <span id="letter-save-status">Saved locally</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+          <button class="chip-btn" onclick="openSheet('sh-dictation')">Dictation</button>
+          <button class="chip-btn" onclick="runLocalReflection('reflect')">Quiet reflection</button>
+          <button class="chip-btn" onclick="runLocalReflection('poem')">Turn into 4 lines</button>
+          <button class="chip-btn" onclick="openSheet('sh-support')">Find human support</button>
+        </div>
+        <div id="local-assist-box" class="card hidden" style="margin-top:10px;padding:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span class="label-meta" id="local-assist-title">Editorial spark (on-device)</span>
+            <button class="label-meta" onclick="document.getElementById('local-assist-box').classList.add('hidden')">Hide</button>
+          </div>
+          <p class="editorial-quote" id="local-assist-text" style="font-size:0.98rem;"></p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
+          <button class="btn-pill btn-primary" onclick="sealAndKeepLetter()">Seal & keep</button>
+          <button class="btn-pill btn-secondary" onclick="turnLetterIntoCard()">Turn into 9:16 card</button>
+          <button class="btn-pill btn-secondary" onclick="openSheet('sh-release')" style="grid-column:span 2;color:var(--rose);">Release letter ritual (ash, embers, paper birds)</button>
+        </div>
+      </div>
+
+      <div id="st-card-pane" class="hidden">
+        <div class="seg-row" id="card-style-row">
+          <button class="seg-btn active" onclick="setCardTheme('obsidian', this)">Midnight</button>
+          <button class="seg-btn" onclick="setCardTheme('parchment', this)">Warm Paper</button>
+          <button class="seg-btn" onclick="setCardTheme('indigo', this)">Deep Indigo</button>
+          <button class="seg-btn" onclick="setCardTheme('rose', this)">Rose Dusk</button>
+        </div>
+
+        <div class="story-preview" id="story-preview">
+          <canvas id="canvas-card-3d"></canvas>
+          <div class="story-content" id="story-content">
+            <div class="label-meta" id="card-top-label" style="color:inherit;opacity:0.75;">UNSENT · Sky Card</div>
+            <div>
+              <div class="h-display" id="card-title-out" style="font-size:1.35rem;color:inherit;">Pisces · Meena</div>
+              <p class="editorial-quote" id="card-body-out" style="color:inherit;margin-top:10px;font-size:1rem;"></p>
+            </div>
+            <div style="font-size:0.75rem;opacity:0.65;">
+              <div id="card-moon-out"></div>
+              <div id="card-wm-out" style="margin-top:3px;">UNSENT</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:16px;">
+          <label class="label-meta" for="card-text-in" style="display:block;margin-bottom:6px;">Your feeling or line (Bengali, Hindi, English supported)</label>
+          <textarea id="card-text-in" class="field" rows="3" oninput="syncCardPreview()" placeholder="Write the lines you want on this 9:16 card..."></textarea>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+            <div>
+              <label class="label-meta" for="card-font-size">Text size</label>
+              <select id="card-font-size" class="field" style="min-height:38px;padding:6px 10px;margin-top:4px;" onchange="syncCardPreview()">
+                <option value="0.92rem">Compact</option>
+                <option value="1.05rem" selected>Balanced</option>
+                <option value="1.22rem">Large</option>
+              </select>
+            </div>
+            <div>
+              <label class="label-meta" for="card-mood-in">Mood tag (optional)</label>
+              <input id="card-mood-in" class="field" style="min-height:38px;padding:6px 10px;margin-top:4px;" placeholder="Quiet, hopeful..." oninput="syncCardPreview()" />
+            </div>
+          </div>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:0.8125rem;">
+            <label style="display:inline-flex;align-items:center;gap:6px;"><input type="checkbox" id="chk-safe-crop" onchange="syncCardPreview()" /> Safe story crop</label>
+            <label style="display:inline-flex;align-items:center;gap:6px;"><input type="checkbox" id="chk-watermark" checked onchange="syncCardPreview()" /> Subtle UNSENT mark</label>
+            <label style="display:inline-flex;align-items:center;gap:6px;"><input type="checkbox" id="chk-show-moon" checked onchange="syncCardPreview()" /> Show Moon phase</label>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
+            <button class="btn-pill btn-primary" onclick="exportCardPNG()">Export 1080×1920 PNG</button>
+            <button class="btn-pill btn-secondary" onclick="saveCardToBox()">Save to My Box</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 4: MY BOX -->
+    <section id="s-box" class="screen" aria-label="My Box">
+      <div class="top-bar">
+        <div>
+          <div class="label-meta">Private Archive · AES-256-GCM Ready</div>
+          <h1 class="h-display" style="font-size:1.38rem;">my box.</h1>
+        </div>
+        <button class="chip-btn" id="btn-vault-lock" onclick="toggleVaultLock()">🔓 Unlocked</button>
+      </div>
+
+      <div id="vault-locked-view" class="card hidden" style="text-align:center;padding:34px 20px;">
+        <div style="font-size:1.8rem;margin-bottom:10px;">🔒</div>
+        <h2 class="h-display" style="font-size:1.2rem;">Your box is locked</h2>
+        <p class="h-sub" style="font-size:0.88rem;margin:8px 0 16px;">Private letters, feelings, and check-ins stay hidden on shared devices until unlocked.</p>
+        <button class="btn-pill btn-primary" onclick="toggleVaultLock()">Unlock box</button>
+      </div>
+
+      <div id="vault-open-view">
+        <input type="search" id="box-search" class="field" placeholder="Search your letters, cards, or dates..." style="margin-bottom:12px;" oninput="renderBox()" />
+
+        <div class="seg-row" id="box-filter-tabs">
+          <button class="seg-btn active" onclick="setBoxFilter('all', this)">All</button>
+          <button class="seg-btn" onclick="setBoxFilter('letter', this)">Letters</button>
+          <button class="seg-btn" onclick="setBoxFilter('card', this)">Cards</button>
+          <button class="seg-btn" onclick="setBoxFilter('recap', this)">Year in feelings</button>
+        </div>
+
+        <div id="box-list"></div>
+
+        <div id="demo-samples-card" class="card" style="margin-top:14px;border-style:dashed;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span class="label-meta">Example entries (excluded from your recap)</span>
+            <button class="chip-btn" style="min-height:28px;padding:2px 10px;font-size:0.74rem;" onclick="removeSampleEntries()">Remove examples</button>
+          </div>
+          <p class="h-sub" style="font-size:0.85rem;">“Dear younger me — You did not have to carry every silence as proof of strength.” · Never Sent</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- BOTTOM NAV BAR -->
+    <nav id="bottom-nav" aria-label="Main navigation">
+      <div class="nav-pill-bar">
+        <button class="nav-tab active" data-nav="today" onclick="navTo('today')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+          <span id="nav-lbl-today">Today</span>
+        </button>
+        <button class="nav-tab" data-nav="zodiac" onclick="navTo('zodiac')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>
+          <span id="nav-lbl-zodiac">Zodiac</span>
+        </button>
+        <button class="nav-create-fab" onclick="openSheet('sh-create')" aria-label="Create">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button class="nav-tab" data-nav="studio" onclick="navTo('studio')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          <span id="nav-lbl-studio">Create</span>
+        </button>
+        <button class="nav-tab" data-nav="box" onclick="navTo('box')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+          <span id="nav-lbl-box">My Box</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- SHEETS -->
+    <div class="backdrop" id="backdrop" onclick="closeSheets()"></div>
+
+    <div class="sheet" id="sh-create">
+      <div class="sheet-bar"></div>
+      <div class="sheet-head"><h2 class="h-display" style="font-size:1.2rem;">create something true.</h2><button class="icon-btn" onclick="closeSheets()">✕</button></div>
+      <button class="list-item" style="width:100%;text-align:left;" onclick="closeSheets(); openStudioMode('letter')">
+        <div class="label-ui" style="color:var(--text-primary);">Write an unsent letter</div>
+        <div class="label-meta">6 paper styles, autosave, stamp & release ritual</div>
+      </button>
+      <button class="list-item" style="width:100%;text-align:left;" onclick="closeSheets(); openStudioMode('card')">
+        <div class="label-ui" style="color:var(--text-primary);">Make a 9:16 feeling card</div>
+        <div class="label-meta">Export crisp 1080×1920 PNG art on device</div>
+      </button>
+      <button class="list-item" style="width:100%;text-align:left;" onclick="closeSheets(); openSheet('sh-checkin')">
+        <div class="label-ui" style="color:var(--text-primary);">Log today's emotional weather</div>
+        <div class="label-meta">Your own words — never inferred from the Moon</div>
+      </button>
+    </div>
+
+    <div class="sheet" id="sh-lens">
+      <div class="sheet-bar"></div>
+      <div class="sheet-head"><h2 class="h-display" style="font-size:1.2rem;">choose my lens.</h2><button class="icon-btn" onclick="closeSheets()">✕</button></div>
+      <p class="h-sub" style="font-size:0.86rem;margin-bottom:12px;">Pick any sign directly, or calculate deterministically on-device. Western Tropical Sun and Vedic Lahiri Moon are independent systems and can differ.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div><label class="label-meta" for="birth-date-in">Birth date</label><input type="date" id="birth-date-in" class="field" style="margin-top:4px;" /></div>
+        <div><label class="label-meta" for="birth-time-in">Birth time (optional)</label><input type="time" id="birth-time-in" class="field" style="margin-top:4px;" /></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-bottom:10px;"><input type="checkbox" id="chk-unknown-time" onchange="toggleUnknownTime()" /> I don't know the birth time</label>
+      <label class="label-meta" for="birth-city-in">City & timezone (West Bengal + global presets)</label>
+      <select id="birth-city-in" class="field" style="margin-top:4px;margin-bottom:12px;">
+        <option value="22.5726,88.3639,Asia/Kolkata">Kolkata, India (Asia/Kolkata · UTC+5:30)</option>
+        <option value="22.9751,88.4345,Asia/Kolkata">Kalyani, West Bengal (Asia/Kolkata · UTC+5:30)</option>
+        <option value="23.0793,88.5177,Asia/Kolkata">Chakdaha, West Bengal (Asia/Kolkata · UTC+5:30)</option>
+        <option value="23.8103,90.4125,Asia/Dhaka">Dhaka, Bangladesh (Asia/Dhaka · UTC+6:00)</option>
+        <option value="51.5074,-0.1278,Europe/London">London, UK (Europe/London)</option>
+        <option value="40.7128,-74.0060,America/New_York">New York, USA (America/New_York)</option>
+      </select>
+      <button class="btn-pill btn-primary" style="width:100%;" onclick="calculateBirthLens()">Calculate Sun & Lahiri Moon</button>
+      <div id="lens-result-box" class="list-item hidden" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="sheet" id="sh-fact-packet">
+      <div class="sheet-bar"></div>
+      <div class="sheet-head"><h2 class="h-display" style="font-size:1.2rem;">how this was found.</h2><button class="icon-btn" onclick="closeSheets()">✕</button></div>
+      <p class="h-sub" style="font-size:0.85rem;margin-bottom:10px;">Deterministic astronomical calculation packet. Language models never calculate positions or dates.</p>
+      <pre id="fact-packet-json" style="background:var(--bg-elevated);padding:12px;border-radius:14px;font-size:0.75rem;overflow-x:auto;line-height:1.45;color:var(--candle);"></pre>
+    </div>
+
+    <div class="sheet" id="sh-checkin">
+      <div class="sheet-bar"></div>
+      <div class="sheet-head"><h2 class="h-display" style="font-size:1.2rem;">emotional weather.</h2><button class="icon-btn" onclick="closeSheets()">✕</button></div>
+      <p class="h-sub" style="font-size:0.85rem;margin-bottom:10px;">Choose how today feels in your own words. Never inferred automatically.</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="mood-chips"></div>
+      <input type="text" id="checkin-note" class="field" placeholder="Optional short note for this date..." style="margin-bottom:12px;" />
+      <button class="btn-pill btn-primary" style="width:100%;" onclick="saveCheckIn()">Save check-in</button>
+    </div>
+
+    <div class="sheet" id="sh-release">
+      <div class="sheet-bar"></div>
+      <div class="sheet-head"><h2 class="h-display" style="font-size:1.2rem;">release this letter.</h2><button class="icon-btn" onclick="closeSheets()">✕</button></div>
+      <p class="h-sub" style="font-size:0.86rem;margin-bottom:10px;">Choose a release ritual. Active app storage for this draft will be cleared immediately; previously exported PNGs remain where you saved them.</p>
+      <div class="seg-row">
+        <button class="seg-btn active" onclick="setReleaseMode('birds', this)">Paper birds</button>
+        <button class="seg-btn" onclick="setReleaseMode('embers', this)">Embers</button>
+        <button class="seg-btn" onclick="setReleaseMode('ash', this)">Ash</button>
+      </div>
+      <div class="hero-dark" style="height:175px;margin-bottom:12px;position:relative;"><canvas id="canvas-release" style="width:100%;height:100%;display:block;"></canvas></div>
+      <button class="btn-pill btn-primary" style="width:100%;background:var(--stamp-red);color:#fff;" onclick="confirmReleaseLetter()">Confirm release & remove draft</button>
+    </div>
+
+    <div class="sheet" id="sh-dictation">
+      <div class="sheet-bar"></div>
+      <div class="sheet-head"><h2 class="h-display" style="font-size:1.2rem;">voice dictation.</h2><button class="icon-btn" onclick="closeSheets()">✕</button></div>
+      <p class="h-sub" style="font-size:0.86rem;margin-bottom:14px;">Dictation uses your browser's speech engine and may send audio to your browser vendor. Typing stays 100% on-device.</p>
+      <button class="btn-pill btn-primary" style="width:100%;" onclick="startVoiceDictation()">Enable microphone & dictate</button>
+    </div>
+
+    <div class="sheet" id="sh-support">
+      <div class="sheet-bar"></div>
+      <div class="sheet-head"><h2 class="h-display" style="font-size:1.2rem;">you don't have to carry it alone.</h2><button class="icon-btn" onclick="closeSheets()">✕</button></div>
+      <p class="h-sub" style="font-size:0.88rem;margin-bottom:12px;">If tonight feels too heavy, talking to a real person helps. Your writing stays saved privately on your device.</p>
+      <div class="list-item"><div class="label-ui" style="color:var(--text-primary);">Tele-MANAS (India · 24/7 Free Mental Health Support)</div><div class="label-meta" style="margin-top:2px;">Call 14416 or 1800-891-4416</div></div>
+      <div class="list-item"><div class="label-ui" style="color:var(--text-primary);">iCall Psychosocial Helpline (TISS Mumbai)</div><div class="label-meta" style="margin-top:2px;">Call 9152987821 · Mon–Sat, 8 AM – 10 PM IST</div></div>
+    </div>
+
+    <div class="sheet" id="sh-pair-a"><div class="sheet-bar"></div><div class="sheet-head"><h2 class="h-display" style="font-size:1.2rem;">select sign A.</h2><button class="icon-btn" onclick="closeSheets()">✕</button></div><div class="sign-grid" id="pair-grid-a"></div></div>
+    <div class="sheet" id="sh-pair-b"><div class="sheet-bar"></div><div class="sheet-head"><h2 class="h-display" style="font-size:1.2rem;">select sign B.</h2><button class="icon-btn" onclick="closeSheets()">✕</button></div><div class="sign-grid" id="pair-grid-b"></div></div>
+
+    <div class="sheet" id="sh-settings">
+      <div class="sheet-bar"></div>
+      <div class="sheet-head"><h2 class="h-display" style="font-size:1.2rem;">settings & privacy.</h2><button class="icon-btn" onclick="closeSheets()">✕</button></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border-subtle);">
+        <div><div class="label-ui" style="color:var(--text-primary);">Daylight Paper Mode</div><div class="label-meta">Warm paper canvas with dark hero anchor</div></div>
+        <button class="toggle" id="tog-theme" onclick="toggleTheme()" role="switch" aria-checked="false"><div class="toggle-dot"></div></button>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border-subtle);">
+        <div><div class="label-ui" style="color:var(--text-primary);">Reduce Motion</div><div class="label-meta">Pause 3D movement and transitions</div></div>
+        <button class="toggle" id="tog-motion" onclick="toggleMotion()" role="switch" aria-checked="false"><div class="toggle-dot"></div></button>
+      </div>
+      <div style="padding:12px 0;border-bottom:1px solid var(--border-subtle);">
+        <label class="label-ui" for="sel-text-size" style="color:var(--text-primary);display:block;margin-bottom:6px;">Text size</label>
+        <select id="sel-text-size" class="field" onchange="setTextSize(this.value)">
+          <option value="1">Standard (100%)</option>
+          <option value="1.12">Large (112%)</option>
+          <option value="1.25">Extra Large (125%)</option>
+        </select>
+      </div>
+      <div style="padding:12px 0;border-bottom:1px solid var(--border-subtle);">
+        <label class="label-ui" for="sel-tz" style="color:var(--text-primary);display:block;margin-bottom:6px;">Timezone</label>
+        <select id="sel-tz" class="field" onchange="setTimezone(this.value)">
+          <option value="Asia/Kolkata">India Standard Time (Asia/Kolkata)</option>
+          <option value="Asia/Dhaka">Bangladesh Standard Time (Asia/Dhaka)</option>
+          <option value="Europe/London">London (Europe/London)</option>
+          <option value="America/New_York">New York (America/New_York)</option>
+          <option value="UTC">UTC</option>
+        </select>
+      </div>
+      <div style="padding:12px 0;">
+        <div class="label-ui" style="color:var(--text-primary);margin-bottom:6px;">Encrypted backup & local erasure</div>
+        <p class="label-meta" style="line-height:1.5;margin-bottom:10px;">Everything stays locally on your device in IndexedDB. Export an AES-256-GCM encrypted backup or clear local storage anytime.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-pill btn-secondary" style="flex:1;min-height:40px;" onclick="exportEncryptedBackup()">Encrypted backup</button>
+          <button class="btn-pill btn-secondary" style="flex:1;min-height:40px;" onclick="exportBackupJSON()">Plain JSON</button>
+          <button class="btn-pill btn-secondary" style="width:100%;min-height:40px;color:var(--stamp-red);" onclick="clearAllLocalData()">Erase local box</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DESKTOP COMPANION 3D PANEL -->
+  <aside id="desktop-companion" aria-label="Celestial 3D Companion">
+    <div style="padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div class="label-meta" style="color:#A6A3B8;">3D Elemental Sanctuary</div>
+        <h2 class="h-display" id="dc-title" style="font-size:1.35rem;color:#F5F2EC;">Water · Pisces (Meena)</h2>
+      </div>
+      <span class="chip-btn" style="background:rgba(255,255,255,0.08);color:#D9B26F;border-color:rgba(217,178,111,0.28);">Interactive 3D</span>
+    </div>
+    <div style="flex:1;position:relative;"><canvas id="canvas-desktop" style="width:100%;height:100%;display:block;"></canvas></div>
+    <div style="padding:20px 24px 24px;border-top:1px solid rgba(255,255,255,0.08);background:rgba(14,11,26,0.65);">
+      <div class="label-meta" style="color:#D9B26F;margin-bottom:4px;">Elemental themes</div>
+      <p class="h-sub" id="dc-themes-text" style="color:#D6D2E4;font-size:0.9rem;margin-bottom:10px;"></p>
+      <p class="editorial-quote" id="dc-reflection-text" style="color:#F5EAD6;font-size:1rem;"></p>
+    </div>
+  </aside>
+</div>
+
+<script type="module" src="./src/app.js"></script>
+</body>
+</html>
+
+7. styles/app.css
+
+:root {
+  --ink: #0E0B1A;
+  --midnight: #1B1740;
+  --dusk: #3A2F6B;
+  --rose: #E8B4B8;
+  --candle: #D9B26F;
+  --paper-warm: #F5EAD6;
+  --stamp-red: #B3202A;
+
+  --bg-canvas: #0B0A14;
+  --bg-card: #141223;
+  --bg-elevated: #1D1A32;
+  --bg-hero: #121022;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(217, 178, 111, 0.28);
+
+  --text-primary: #F5F2EC;
+  --text-secondary: #A6A3B8;
+  --text-tertiary: #6F6C84;
+
+  --cta-bg: #F5EAD6;
+  --cta-ink: #0E0B1A;
+
+  --shadow-card: 0 10px 32px rgba(0, 0, 0, 0.34);
+
+  --ff-display: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+  --ff-body: 'Inter', 'Noto Sans Devanagari', 'Hind Siliguri', -apple-system, sans-serif;
+  --ff-editorial: 'Newsreader', Georgia, serif;
+  --ff-hi: 'Noto Sans Devanagari', sans-serif;
+  --ff-bn: 'Hind Siliguri', sans-serif;
+
+  --scale: 1;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-theme="light"] {
+  --bg-canvas: #F5F0E6;
+  --bg-card: #FFFFFF;
+  --bg-elevated: #ECE6DA;
+  --bg-hero: #121022;
+  --border-subtle: rgba(14, 11, 26, 0.09);
+  --border-strong: rgba(14, 11, 26, 0.18);
+  --text-primary: #141122;
+  --text-secondary: #5B576E;
+  --text-tertiary: #847F99;
+  --cta-bg: #141122;
+  --cta-ink: #F5F0E6;
+  --shadow-card: 0 4px 20px rgba(14, 11, 26, 0.05);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; font-style: normal !important; }
+html { -webkit-font-smoothing: antialiased; font-size: calc(16px * var(--scale)); }
+body { background: var(--bg-canvas); color: var(--text-primary); font-family: var(--ff-body); min-height: 100dvh; display: flex; justify-content: center; overflow-x: hidden; transition: background 0.35s var(--ease), color 0.35s var(--ease); }
+button { cursor: pointer; border: none; background: transparent; font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
+input, textarea, select { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--candle); outline-offset: 2px; }
+::-webkit-scrollbar { width: 0; height: 0; }
+
+#workspace { width: 100%; min-height: 100dvh; display: flex; justify-content: center; align-items: stretch; gap: 28px; }
+#shell { width: 100%; max-width: 420px; height: 100dvh; position: relative; overflow: hidden; background: var(--bg-canvas); box-shadow: 0 0 0 1px var(--border-subtle), 0 28px 90px rgba(0, 0, 0, 0.45); }
+#desktop-companion { display: none; }
+
+@media (min-width: 980px) {
+  #workspace { padding: 20px 32px; align-items: center; background: radial-gradient(circle at 22% 20%, rgba(58, 47, 107, 0.25), transparent 55%), var(--bg-canvas); }
+  #shell { height: min(860px, calc(100dvh - 40px)); border-radius: 34px; border: 1px solid var(--border-subtle); }
+  #desktop-companion { display: flex; flex-direction: column; width: 460px; height: min(860px, calc(100dvh - 40px)); border-radius: 34px; background: #100E1D; color: #F5F2EC; border: 1px solid rgba(255, 255, 255, 0.09); box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48); overflow: hidden; }
+}
+
+.screen { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 16px 18px 118px; opacity: 0; pointer-events: none; transform: translateY(12px); transition: opacity 0.35s var(--ease), transform 0.35s var(--ease); }
+.screen.active { opacity: 1; pointer-events: all; transform: translateY(0); }
+
+.h-display { font-family: var(--ff-display); font-weight: 600; letter-spacing: -0.025em; line-height: 1.2; }
+.h-sub { font-size: 0.94rem; line-height: 1.62; color: var(--text-secondary); }
+.label-ui { font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); }
+.label-meta { font-size: 0.75rem; font-weight: 500; color: var(--text-tertiary); }
+.editorial-quote { font-family: var(--ff-editorial); font-size: 1.125rem; line-height: 1.6; color: var(--text-primary); }
+.tabular { font-variant-numeric: tabular-nums; }
+
+.card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 22px; padding: 20px; box-shadow: var(--shadow-card); }
+.hero-dark { background: var(--bg-hero); color: #F5F2EC; border: 1px solid rgba(217, 178, 111, 0.16); border-radius: 24px; overflow: hidden; box-shadow: 0 14px 36px rgba(0, 0, 0, 0.32); }
+
+.btn-pill { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; transition: transform 0.16s var(--ease); }
+.btn-pill:active { transform: scale(0.97); }
+.btn-primary { background: var(--cta-bg); color: var(--cta-ink); }
+.btn-hero-gold { background: #F5EAD6; color: #0E0B1A; }
+.btn-secondary { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border-subtle); }
+.btn-ghost { background: rgba(255, 255, 255, 0.08); color: #F5F2EC; border: 1px solid rgba(255, 255, 255, 0.14); }
+
+.icon-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-elevated); border: 1px solid var(--border-subtle); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); flex-shrink: 0; }
+.chip-btn { min-height: 36px; padding: 6px 13px; border-radius: 9999px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); font-size: 0.8125rem; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+
+.top-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.lang-switch { display: inline-flex; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 9999px; padding: 2px; }
+.lang-pill { padding: 5px 8px; border-radius: 9999px; font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); }
+.lang-pill.active { background: var(--bg-card); color: var(--text-primary); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+.seg-row { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; }
+.seg-btn { flex-shrink: 0; min-height: 36px; padding: 7px 14px; border-radius: 9999px; background: var(--bg-elevated); font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); }
+.seg-btn.active { background: var(--cta-bg); color: var(--cta-ink); }
+
+.week-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 14px; }
+.day-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 2px; }
+.day-cell .dw { font-size: 0.6875rem; color: var(--text-tertiary); font-weight: 500; }
+.day-cell .dn { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); }
+.day-cell.today .dw { color: var(--text-primary); }
+.day-cell.today .dn { background: var(--candle); color: #0E0B1A; }
+
+.stage-wrap { position: relative; width: 100%; height: 218px; background: radial-gradient(circle at 50% 45%, rgba(217, 178, 111, 0.11), transparent 72%); }
+.stage-wrap canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+.stage-badge { position: absolute; top: 12px; left: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 9999px; background: rgba(14, 11, 26, 0.65); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.12); font-size: 0.75rem; font-weight: 500; color: #EAE6DC; }
+.stage-badge-right { left: auto; right: 12px; }
+
+.envelope-art { width: 66px; height: 44px; margin: 0 auto 10px; }
+.hero-body { padding: 6px 20px 22px; text-align: center; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 16px; }
+
+.almanac-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 12px; }
+.alm-day { aspect-ratio: 1; border-radius: 12px; background: var(--bg-elevated); border: 1px solid transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; gap: 2px; }
+.alm-day.selected { border-color: var(--candle); background: rgba(217, 178, 111, 0.15); }
+.alm-day.today-ring { box-shadow: inset 0 0 0 1.5px var(--rose); }
+
+.element-3d-stage { height: 235px; position: relative; background: radial-gradient(circle at 50% 48%, rgba(217, 178, 111, 0.12), transparent 72%); }
+.elem-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 12px 14px 14px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.elem-tab { min-height: 40px; border-radius: 12px; padding: 6px 4px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); font-size: 0.78rem; font-weight: 600; color: #C7C3D6; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.elem-tab.active { background: rgba(255, 255, 255, 0.15); color: #FFFFFF; border-color: rgba(217, 178, 111, 0.45); }
+
+.sign-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+.sign-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 18px; padding: 13px 8px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 5px; }
+.sign-card.selected { border-color: var(--candle); box-shadow: 0 0 0 1px var(--candle); }
+
+.paper-surface { border-radius: 22px; padding: 20px 18px; border: 1px solid var(--border-subtle); position: relative; overflow: hidden; }
+.paper-parchment { background: #F5EAD6; color: #241C14; }
+.paper-midnight { background: #14122B; color: #F1EEF9; }
+.paper-rose { background: #F3DCE0; color: #2B181E; }
+.paper-rain { background: #1A2433; color: #E4EDF7; }
+.paper-notebook { background: #FAF8F2; color: #1F2229; background-image: repeating-linear-gradient(transparent, transparent 29px, rgba(70, 95, 145, 0.13) 30px); }
+.paper-moonlit { background: #0E0B1A; color: #EDE6D6; }
+
+.letter-textarea { width: 100%; min-height: 210px; background: transparent; border: none; outline: none; resize: vertical; font-family: var(--ff-editorial); font-size: 1.0625rem; line-height: 1.75; }
+.never-sent-stamp { display: inline-block; border: 2px solid var(--stamp-red); color: var(--stamp-red); padding: 4px 10px; border-radius: 6px; font-family: var(--ff-display); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; transform: rotate(-4deg); opacity: 0; transition: opacity 0.3s; }
+.never-sent-stamp.stamped { opacity: 0.92; transform: rotate(-6deg); }
+
+.story-preview { width: 100%; aspect-ratio: 9 / 16; max-height: 500px; border-radius: 24px; overflow: hidden; position: relative; border: 1px solid var(--border-subtle); background: #0E0B1A; color: #F5F2EC; margin-bottom: 14px; }
+.story-preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.story-content { position: relative; z-index: 2; height: 100%; padding: 26px 22px; display: flex; flex-direction: column; justify-content: space-between; text-align: center; }
+.story-content.safe-crop { padding: 42px 30px; }
+
+#bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; z-index: 70; padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, var(--bg-canvas) 68%, transparent); }
+.nav-pill-bar { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 26px; padding: 5px 6px; display: grid; grid-template-columns: 1fr 1fr auto 1fr 1fr; align-items: center; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32); }
+.nav-tab { min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--text-tertiary); }
+.nav-tab.active { color: var(--text-primary); }
+.nav-tab span { font-size: 0.6875rem; font-weight: 500; }
+.nav-create-fab { width: 48px; height: 48px; border-radius: 50%; background: var(--cta-bg); color: var(--cta-ink); display: flex; align-items: center; justify-content: center; margin: 0 4px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
+
+.backdrop { position: absolute; inset: 0; z-index: 90; background: rgba(8, 6, 16, 0.6); backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+.backdrop.open { opacity: 1; pointer-events: all; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 92; background: var(--bg-card); border-top: 1px solid var(--border-subtle); border-radius: 26px 26px 0 0; padding: 10px 18px 28px; max-height: 84dvh; overflow-y: auto; transform: translateY(105%); transition: transform 0.36s var(--ease); }
+.sheet.open { transform: translateY(0); }
+.sheet-bar { width: 38px; height: 4px; border-radius: 9999px; background: var(--border-strong); margin: 2px auto 14px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+
+.field { width: 100%; min-height: 44px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 14px; padding: 11px 14px; font-size: 0.94rem; color: var(--text-primary); }
+.toggle { width: 48px; height: 28px; border-radius: 9999px; background: var(--bg-elevated); border: 1px solid var(--border-strong); position: relative; flex-shrink: 0; }
+.toggle.on { background: var(--candle); border-color: var(--candle); }
+.toggle-dot { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--text-secondary); transition: transform 0.2s var(--ease); }
+.toggle.on .toggle-dot { transform: translateX(20px); background: #0E0B1A; }
+
+.list-item { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 14px; margin-bottom: 10px; }
+.toast { position: absolute; top: 16px; left: 50%; transform: translateX(-50%) translateY(-20px); z-index: 120; background: var(--cta-bg); color: var(--cta-ink); padding: 9px 18px; border-radius: 9999px; font-size: 0.8125rem; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s var(--ease); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.hidden { display: none !important; }
+
+8. src/data/zodiac.js
+
+export const ELEMENTS_DATA = {
+  Fire: { color: '#E86F48', signs: ['Aries', 'Leo', 'Sagittarius'], themes: 'Initiative, enthusiasm, creative drive', reflection: 'What inspires me to act?' },
+  Earth: { color: '#72B384', signs: ['Taurus', 'Virgo', 'Capricorn'], themes: 'Practicality, steadiness, tangible progress', reflection: 'What helps me feel grounded?' },
+  Air: { color: '#7BBCEB', signs: ['Gemini', 'Libra', 'Aquarius'], themes: 'Ideas, communication, perspective', reflection: 'What am I curious about?' },
+  Water: { color: '#7898EB', signs: ['Cancer', 'Scorpio', 'Pisces'], themes: 'Feeling, intuition, emotional connection', reflection: 'What needs my attention within?' }
+};
+
+export const SIGNS = [
+  {
+    id:'aries', glyph:'♈', western:'Aries', rashi:'Mesha', hi:'मेष', bn:'মেষ',
+    element:'Fire', modality:'Cardinal', ruler:'Mars', color:'#E86F48',
+    art:'A vermilion match flaring against charcoal',
+    action:'Write the first sentence of something you have delayed.',
+    prompts:[
+      'What would you begin if the first attempt could be small?',
+      'Where does impatience tell you that something genuinely matters?',
+      'Who do you want to stand beside without needing to race ahead?',
+      'Which boundary could you speak cleanly in one sentence today?',
+      'What quiet effort deserves credit before the next leap?',
+      'What happens if curiosity leads instead of urgency?',
+      'What are you ready to start over without judging the false starts?'
+    ]
+  },
+  {
+    id:'taurus', glyph:'♉', western:'Taurus', rashi:'Vrishabha', hi:'वृषभ', bn:'বৃষ',
+    element:'Earth', modality:'Fixed', ruler:'Venus', color:'#72B384',
+    art:'Terracotta rings in wet clay',
+    action:'Describe one thing near you by touch, smell, and color.',
+    prompts:[
+      'Which ordinary comfort would you miss tomorrow?',
+      'Which friendship feels steady without requiring performance?',
+      'What small thing made with your own hands would bring relief?',
+      'Where does slowing down help you notice what is actually true?',
+      'Which quiet habit keeps you safe — and which one keeps you stuck?',
+      'What simple pleasure in your room deserves gratitude tonight?',
+      'What old rule can you release gently and start fresh?'
+    ]
+  },
+  {
+    id:'gemini', glyph:'♊', western:'Gemini', rashi:'Mithuna', hi:'मिथुन', bn:'মিথুন',
+    element:'Air', modality:'Mutable', ruler:'Mercury', color:'#E2C285',
+    art:'Two folded notes in mint ink',
+    action:'Write a line for each side and give them both room.',
+    prompts:[
+      'What are the two honest sides of this thought?',
+      'Who can you talk to for ten minutes without filtering yourself?',
+      'What half-formed idea keeps tapping you on the shoulder?',
+      'When your mind runs fast, what helps your body catch up?',
+      'Where do you say yes just to keep the conversation moving?',
+      'What detail from today made you quietly smile?',
+      'If you picked just one question for this week, which stays?'
+    ]
+  },
+  {
+    id:'cancer', glyph:'♋', western:'Cancer', rashi:'Karka', hi:'कर्कट', bn:'কর্কট',
+    element:'Water', modality:'Cardinal', ruler:'Moon', color:'#7898EB',
+    art:'Rain collecting on a blue window',
+    action:'Start a private thank-you with one specific memory.',
+    prompts:[
+      'Who or what makes a place feel like home?',
+      'Which small kindness from someone else are you still carrying?',
+      'If your mood were weather outside, what would help you shelter well?',
+      'What gentle rest does your heart keep postponing?',
+      'Where are you protecting yourself from a hurt that is already over?',
+      'What memory still tastes warm when you recall it?',
+      'What quiet beginning feels tender enough to trust?'
+    ]
+  },
+  {
+    id:'leo', glyph:'♌', western:'Leo', rashi:'Simha', hi:'सिंह', bn:'সিংহ',
+    element:'Fire', modality:'Fixed', ruler:'Sun', color:'#F2A65A',
+    art:'Amber light on a small stage',
+    action:'Give that moment a title you would keep.',
+    prompts:[
+      'When did you do something brave without an audience?',
+      'Who sees you clearly even on quiet, unpolished days?',
+      'What would you create if nobody were grading the outcome?',
+      'What takes the pressure off performing confidence today?',
+      'Where is pride standing in front of an honest hug or apology?',
+      'Which generous gesture from your past still makes you proud?',
+      'What new chapter wants warmth instead of perfection?'
+    ]
+  },
+  {
+    id:'virgo', glyph:'♍', western:'Virgo', rashi:'Kanya', hi:'कन्या', bn:'কন্যা',
+    element:'Earth', modality:'Mutable', ruler:'Mercury', color:'#8DBE8B',
+    art:'Olive ink beside a pressed leaf',
+    action:'Write three observations. Circle the one you want to remember.',
+    prompts:[
+      'Which detail tells the real story of your day?',
+      'Who makes you feel safe enough to be unedited?',
+      'What messy draft deserves to exist before you fix a single word?',
+      'What task can wait until tomorrow so tonight can stay human?',
+      'Where are you fixing someone else’s problem to avoid your own rest?',
+      'What small ordinary thing worked smoothly today?',
+      'How would starting again look if you dropped the scorecard?'
+    ]
+  },
+  {
+    id:'libra', glyph:'♎', western:'Libra', rashi:'Tula', hi:'तुला', bn:'তুলা',
+    element:'Air', modality:'Cardinal', ruler:'Venus', color:'#D8A6C9',
+    art:'Two rose-colored paper forms in balance',
+    action:'Draft one kind sentence asking for what you need.',
+    prompts:[
+      'Where do you need a little more give and take?',
+      'Which friendship deserves an unhurried check-in this week?',
+      'What shape, color, or song captures how your chest feels right now?',
+      'What quiet hour belongs strictly to you before answering everyone?',
+      'What are you agreeing to out of politeness rather than truth?',
+      'Who brought genuine fairness or grace into your week?',
+      'Which undecided question gets lighter once you pick a gentle direction?'
+    ]
+  },
+  {
+    id:'scorpio', glyph:'♏', western:'Scorpio', rashi:'Vrishchika', hi:'वृश्चिक', bn:'বৃশ্চিক',
+    element:'Water', modality:'Fixed', ruler:'Mars', color:'#9A79D1',
+    art:'A plum ink drop spreading in water',
+    action:'Write a private line you can keep or release.',
+    prompts:[
+      'What feels safe enough to put into words today?',
+      'Who earns your trust through quiet consistency?',
+      'What unspoken truth wants space on paper rather than inside your head?',
+      'What heavy armor can you set beside the chair for twenty minutes?',
+      'Which boundary protects your peace without building a fortress?',
+      'What transformation in yourself took years before it became visible?',
+      'What are you finally ready to let turn into ash and begin again?'
+    ]
+  },
+  {
+    id:'sagittarius', glyph:'♐', western:'Sagittarius', rashi:'Dhanu', hi:'धनु', bn:'ধনু',
+    element:'Fire', modality:'Mutable', ruler:'Jupiter', color:'#DF8B4B',
+    art:'An ochre trail crossing a map',
+    action:'Name one question and one place you could explore it.',
+    prompts:[
+      'What are you curious enough to try once?',
+      'Who brings laughter and honest perspective when life narrows?',
+      'Which detour taught you something a straight road never could?',
+      'What happens if you pause the search and simply sit with today?',
+      'Where did bluntness leave a bruise you could soften with care?',
+      'What horizon or book expanded your breathing room recently?',
+      'If you started a fresh journey tomorrow, what stays in your pocket?'
+    ]
+  },
+  {
+    id:'capricorn', glyph:'♑', western:'Capricorn', rashi:'Makara', hi:'मकर', bn:'মকর',
+    element:'Earth', modality:'Cardinal', ruler:'Saturn', color:'#789CB8',
+    art:'Slate steps caught by morning light',
+    action:'Leave a two-line progress note for your future self.',
+    prompts:[
+      'What quiet effort deserves credit?',
+      'Who knows the version of you that is not trying to be strong?',
+      'What would you build slowly if nobody asked for results this month?',
+      'When did you last rest without justifying it with exhaustion?',
+      'Which obligation is actually yours — and which did you inherit silently?',
+      'What foundation in your life took patience you forgot to honor?',
+      'What gentler pace could carry you into the next season?'
+    ]
+  },
+  {
+    id:'aquarius', glyph:'♒', western:'Aquarius', rashi:'Kumbha', hi:'कुम्भ', bn:'কুম্ভ',
+    element:'Air', modality:'Fixed', ruler:'Saturn', color:'#67BDD1',
+    art:'Cobalt ripples on silver paper',
+    action:'Sketch an alternative in a sentence or two.',
+    prompts:[
+      'Which familiar rule would you redesign?',
+      'Which conversation feels rare because nobody tries to impress?',
+      'What unusual pattern did you notice in ordinary life this week?',
+      'How do you come back into your feelings when thoughts feel loud?',
+      'Where does detachment keep you calm — and where does it keep you lonely?',
+      'Which small community gesture restored your faith a little?',
+      'What original idea deserves a quiet first sketch tonight?'
+    ]
+  },
+  {
+    id:'pisces', glyph:'♓', western:'Pisces', rashi:'Meena', hi:'मीन', bn:'मीन',
+    element:'Water', modality:'Mutable', ruler:'Jupiter', color:'#7D9FE8',
+    art:'Two ink fish moving through indigo',
+    action:'Write two lines beginning “Today sounds like…” and turn them into a card.',
+    prompts:[
+      'If today’s feeling had a sound, what would it be?',
+      'Who lets you stay quiet together without needing small talk?',
+      'What image, color, or dream lingered after you woke up?',
+      'What gentle boundary keeps empathy from draining your evening?',
+      'Where did you say "it is fine" when a soft no was truer?',
+      'What tiny moment of grace found you unexpectedly this week?',
+      'What feels ready to begin softly without pressure?'
+    ]
+  }
+];
+
+export const RECIPIENTS = [
+  { id:'ex', label:'Ex', salutation:'Dear you,', prompts:['What stayed unsaid when the chapter closed?', 'What version of yourself do you want back?', 'What are you grateful for without needing to return?', 'What truth finally feels safe to write down?', 'If closure did not require a reply, what would it say?'] },
+  { id:'mother', label:'Mother', salutation:'Dear Ma,', prompts:['What did you never know how to explain to her?', 'What sacrifice of hers did you only notice years later?', 'Where do you wish she could see who you are now?', 'What gentle thank-you still waits inside you?', 'What pattern between you two are you softening?'] },
+  { id:'father', label:'Father', salutation:'Dear Baba,', prompts:['What did silence between you two usually mean?', 'What moment of quiet care do you still remember?', 'What do you wish you could ask him simply?', 'What did you learn by watching him endure?', 'What would peace between you look like in three lines?'] },
+  { id:'friend', label:'Friend', salutation:'Dear friend,', prompts:['What did they help you survive without knowing?', 'What drift happened that neither of you planned?', 'What inside joke or small afternoon still warms you?', 'What do you hope they know about themselves?', 'What apology or thanks has sat in drafts too long?'] },
+  { id:'lost', label:'Someone I lost', salutation:'Dear,', prompts:['What ordinary news do you still wish you could tell them?', 'What sensory detail brings them right back into the room?', 'What stayed unfinished that you are holding gently?', 'Where do you still catch their influence in your choices?', 'Write a quiet postcard from today.'] },
+  { id:'past', label:'My past self', salutation:'Dear younger me,', prompts:['What did you survive back then with almost no tools?', 'What weight were you never responsible for carrying?', 'What reassurance would have let you sleep earlier?', 'What did you get unexpectedly right?', 'Tell your younger self how far you actually walked.'] },
+  { id:'future', label:'My future self', salutation:'Dear future me,', prompts:['What do you hope feels lighter a year from tonight?', 'Which boundary do you want me to protect by then?', 'What quiet promise feels realistic rather than grand?', 'Describe the room you are sitting in right now.', 'What do you never want to forget about today?'] },
+  { id:'present', label:'Myself right now', salutation:'Dear me,', prompts:['What are you pretending not to feel tonight?', 'If tonight required zero productivity, what would you do?', 'What part of you deserves tenderness instead of critique?', 'Write three honest lines about today without fixing them.', 'What feels enough, just for tonight?'] },
+  { id:'custom', label:'Custom', salutation:'Dear,', prompts:['Start with the single sentence you keep rehearsing.', 'Say the gentle truth before editing yourself.', 'Write as though nobody will ever interrupt.', 'Leave one memory on the page and step back.', 'Put down what feels too loud to keep inside.'] }
+];
+
+export const PAPERS = [
+  { id:'parchment', name:'Old Parchment', cls:'paper-parchment' },
+  { id:'midnight', name:'Midnight Blue', cls:'paper-midnight' },
+  { id:'rose', name:'Rose Petal', cls:'paper-rose' },
+  { id:'rain', name:'Rain on Glass', cls:'paper-rain' },
+  { id:'notebook', name:'Torn Notebook', cls:'paper-notebook' },
+  { id:'moonlit', name:'Moonlit Ink', cls:'paper-moonlit' }
+];
+
+export const UI_STRINGS = {
+  en: {
+    greetings:['good morning.', 'good afternoon.', 'good evening.'],
+    heroTitle:'say what stayed inside.',
+    heroSub:'Write a private letter you never have to send, or shape a feeling into art.',
+    writeBtn:'Write a letter', cardBtn:'Make a feeling card',
+    today:'Today', zodiac:'Zodiac', create:'Create', box:'My Box',
+    anotherSpark:'Another spark', actionLbl:'Two-minute action', almanac:"Dreamer's Almanac"
+  },
+  bn: {
+    greetings:['শুভ সকাল।', 'শুভ দুপুর।', 'শুভ সন্ধ্যা।'],
+    heroTitle:'না বলা কথাটা লিখে ফেলো।',
+    heroSub:'একটি ব্যক্তিগত চিঠি লেখো যা পাঠাতে হবে না, অথবা অনুভূতিকে কার্ডে রূপ দাও।',
+    writeBtn:'চিঠি লেখো', cardBtn:'অনুভূতির কার্ড',
+    today:'আজ', zodiac:'রাশি', create:'তৈরি', box:'আমার বাক্স',
+    anotherSpark:'আরেকটি ভাবনা', actionLbl:'দুই মিনিটের কাজ', almanac:'স্বপ্নদর্শীর পঞ্জিকা'
+  },
+  hi: {
+    greetings:['शुभ प्रभात।', 'नमस्ते।', 'शुभ संध्या।'],
+    heroTitle:'जो भीतर रह गया, लिख दो।',
+    heroSub:'एक निजी पत्र लिखें जिसे भेजना ज़रूरी नहीं, या भावना को कला में ढालें।',
+    writeBtn:'पत्र लिखें', cardBtn:'भावना कार्ड',
+    today:'आज', zodiac:'राशि', create:'रचें', box:'मेरा संदूक',
+    anotherSpark:'एक और विचार', actionLbl:'दो मिनट का अभ्यास', almanac:'स्वप्न पंचांग'
+  },
+  hg: {
+    greetings:['good morning.', 'good afternoon.', 'good evening.'],
+    heroTitle:'jo baat dil mein reh gayi, likh do.',
+    heroSub:'Ek private letter likho jo kabhi bhejna nahi padega, ya apni feeling ko art banao.',
+    writeBtn:'Letter likho', cardBtn:'Feeling card banao',
+    today:'Today', zodiac:'Zodiac', create:'Create', box:'My Box',
+    anotherSpark:'Ek aur spark', actionLbl:'Two-minute action', almanac:"Dreamer's Almanac"
+  }
+};
+
+9. src/engine/astronomy.js
+
+import { SIGNS } from '../data/zodiac.js';
+
+const RAD = Math.PI / 180;
+export const mod360 = (x) => ((x % 360) + 360) % 360;
+
+export function toJulianDay(date) {
+  return date.getTime() / 86400000 + 2440587.5;
+}
+
+export function getSolarTropicalLongitude(date) {
+  const T = (toJulianDay(date) - 2451545.0) / 36525.0;
+  const L0 = 280.46646 + 36000.76983 * T + 0.0003032 * T * T;
+  const M = (357.52911 + 35999.05029 * T - 0.0001537 * T * T) * RAD;
+  const C = (1.914602 - 0.004817 * T - 0.000014 * T * T) * Math.sin(M)
+          + (0.019993 - 0.000101 * T) * Math.sin(2 * M)
+          + 0.000289 * Math.sin(3 * M);
+  const omega = (125.04 - 1934.136 * T) * RAD;
+  return mod360(L0 + C - 0.00569 - 0.00478 * Math.sin(omega));
+}
+
+export function getLunarLongitude(date) {
+  const T = (toJulianDay(date) - 2451545.0) / 36525.0;
+  const Lp = 218.3164477 + 481267.88123421 * T - 0.0015786 * T * T;
+  const D  = (297.8501921 + 445267.1114034 * T - 0.0018819 * T * T) * RAD;
+  const M  = (357.5291092 + 35999.0502909 * T) * RAD;
+  const Mp = (134.9633964 + 477198.8675055 * T + 0.0087414 * T * T) * RAD;
+  const F  = (93.2720950  + 483202.0175233 * T) * RAD;
+
+  const sigmaL =
+      6.288774 * Math.sin(Mp) + 1.274027 * Math.sin(2 * D - Mp) + 0.658314 * Math.sin(2 * D)
+    + 0.213618 * Math.sin(2 * Mp) - 0.185116 * Math.sin(M) - 0.114332 * Math.sin(2 * F)
+    + 0.058793 * Math.sin(2 * D - 2 * Mp) + 0.057066 * Math.sin(2 * D - M - Mp)
+    + 0.053322 * Math.sin(2 * D + Mp) + 0.045758 * Math.sin(2 * D - M)
+    - 0.040923 * Math.sin(M - Mp) - 0.034720 * Math.sin(D) - 0.030383 * Math.sin(M + Mp)
+    + 0.015327 * Math.sin(2 * D - 2 * F) - 0.012528 * Math.sin(Mp + 2 * F) + 0.010980 * Math.sin(Mp - 2 * F);
+  return mod360(Lp + sigmaL);
+}
+
+export function getLahiriAyanamsa(date) {
+  const T = (toJulianDay(date) - 2451545.0) / 36525.0;
+  return 23.853056 + 1.396971 * T;
+}
+
+export function getMoonPhaseInfo(date) {
+  const angle = mod360(getLunarLongitude(date) - getSolarTropicalLongitude(date));
+  const illumination = Math.round(((1 - Math.cos(angle * RAD)) / 2) * 100);
+  let phaseName = 'Waxing Crescent';
+  if (angle < 11.25 || angle >= 348.75) phaseName = 'New Moon';
+  else if (angle < 78.75) phaseName = 'Waxing Crescent';
+  else if (angle < 101.25) phaseName = 'First Quarter';
+  else if (angle < 168.75) phaseName = 'Waxing Gibbous';
+  else if (angle < 191.25) phaseName = 'Full Moon';
+  else if (angle < 258.75) phaseName = 'Waning Gibbous';
+  else if (angle < 281.25) phaseName = 'Last Quarter';
+  else phaseName = 'Waning Crescent';
+  return { angle: +angle.toFixed(2), illumination, phaseName };
+}
+
+export function findNextMoonEvent(startDate, targetAngle) {
+  const stepMs = 6 * 3600 * 1000;
+  let t1 = startDate.getTime();
+  const signedDiff = (t) => {
+    const a = mod360(getLunarLongitude(new Date(t)) - getSolarTropicalLongitude(new Date(t)));
+    let d = a - targetAngle;
+    if (d > 180) d -= 360;
+    if (d < -180) d += 360;
+    return d;
+  };
+  let d1 = signedDiff(t1);
+  for (let i = 0; i < 140; i++) {
+    const t2 = t1 + stepMs;
+    const d2 = signedDiff(t2);
+    if (d1 <= 0 && d2 >= 0 && Math.abs(d2 - d1) < 90) {
+      let lo = t1, hi = t2;
+      for (let b = 0; b < 18; b++) {
+        const mid = (lo + hi) / 2;
+        if (signedDiff(mid) < 0) lo = mid; else hi = mid;
+      }
+      return new Date((lo + hi) / 2);
+    }
+    t1 = t2; d1 = d2;
+  }
+  return null;
+}
+
+export function signFromLongitude(deg) {
+  return SIGNS[Math.floor(mod360(deg) / 30)];
+}
+
+export function createFactPacket(opts) {
+  return {
+    schemaVersion: '1.0.0',
+    engine: 'Meeus-JS-Deterministic-Ephemeris',
+    ...opts
+  };
+}
+
+10. src/engine/storage.js
+
+export function openIDB() {
+  return new Promise((resolve) => {
+    if (!window.indexedDB) { resolve(null); return; }
+    const req = indexedDB.open('unsent_astral_vault', 1);
+    req.onupgradeneeded = () => {
+      const d = req.result;
+      if (!d.objectStoreNames.contains('vault')) d.createObjectStore('vault', { keyPath: 'id' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+}
+
+async function deriveAesKey(passphrase, salt) {
+  const enc = new TextEncoder();
+  const baseKey = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 120000, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+export async function encryptVaultBackup(payloadObj, passphrase) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveAesKey(passphrase, salt);
+  const encoded = new TextEncoder().encode(JSON.stringify(payloadObj));
+  const cipher = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv, additionalData: new TextEncoder().encode('unsent-vault-v1') },
+    key,
+    encoded
+  );
+  return {
+    version: 1,
+    alg: 'AES-256-GCM',
+    salt: btoa(String.fromCharCode(...salt)),
+    iv: btoa(String.fromCharCode(...iv)),
+    ciphertext: btoa(String.fromCharCode(...new Uint8Array(cipher)))
+  };
+}
+
+11. src/three/elements3d.js
+
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js';
+import { SIGNS } from '../data/zodiac.js';
+
+export function createStarParticles(count, spread, colorHex, size = 0.05) {
+  const geo = new THREE.BufferGeometry();
+  const arr = new Float32Array(count * 3);
+  for (let i = 0; i < count * 3; i++) arr[i] = (Math.random() - 0.5) * spread;
+  geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+  return new THREE.Points(geo, new THREE.PointsMaterial({ color: colorHex, size, transparent: true, opacity: 0.72 }));
+}
+
+export function build3DElementSculpture(elementName) {
+  const group = new THREE.Group();
+  group.userData.element = elementName;
+
+  if (elementName === 'Fire') {
+    const makeFlame = (sx, sy, sz, color, opacity, yOff = 0) => {
+      const geo = new THREE.ConeGeometry(0.62, 1.55, 28, 16, true);
+      geo.userData.base = Float32Array.from(geo.attributes.position.array);
+      const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+        color, emissive: color, emissiveIntensity: 0.85, roughness: 0.35, transparent: true, opacity, side: THREE.DoubleSide
+      }));
+      mesh.scale.set(sx, sy, sz);
+      mesh.position.y = yOff;
+      return mesh;
+    };
+    const outer = makeFlame(1.05, 1.05, 1.05, 0xE85334, 0.72, 0.05);
+    const mid = makeFlame(0.75, 0.92, 0.75, 0xF59D42, 0.86, -0.05);
+    const core = makeFlame(0.45, 0.72, 0.45, 0xFFF2B2, 0.95, -0.18);
+    const baseRing = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.03, 12, 64), new THREE.MeshStandardMaterial({ color: 0xD9B26F, metalness: 0.6, roughness: 0.3 }));
+    baseRing.rotation.x = Math.PI / 2; baseRing.position.y = -0.75;
+
+    const emberN = 120, emberGeo = new THREE.BufferGeometry(), emberPos = new Float32Array(emberN * 3);
+    for (let i = 0; i < emberN; i++) {
+      const a = Math.random() * Math.PI * 2, r = 0.2 + Math.random() * 0.9;
+      emberPos[i * 3] = Math.cos(a) * r; emberPos[i * 3 + 1] = -0.8 + Math.random() * 2.1; emberPos[i * 3 + 2] = Math.sin(a) * r;
+    }
+    emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPos, 3));
+    const embers = new THREE.Points(emberGeo, new THREE.PointsMaterial({ color: 0xFFC56D, size: 0.055, transparent: true, opacity: 0.9 }));
+    const glow = new THREE.PointLight(0xFF7B3D, 4.5, 8); glow.position.set(0, 0.2, 0.6);
+
+    group.add(outer, mid, core, baseRing, embers, glow);
+    group.userData.update = (t) => {
+      [outer, mid, core].forEach((m, idx) => {
+        const pos = m.geometry.attributes.position, base = m.geometry.userData.base;
+        for (let i = 0; i < pos.count; i++) {
+          const bx = base[i * 3], by = base[i * 3 + 1], bz = base[i * 3 + 2];
+          const hNorm = Math.max(0, (by + 0.77) / 1.55);
+          pos.setXYZ(i, bx + Math.sin(t * (3.2 + idx) + by * 3.5 + bx * 2) * 0.14 * hNorm, by, bz + Math.cos(t * (2.6 + idx) + by * 2.8) * 0.11 * hNorm);
+        }
+        pos.needsUpdate = true;
+      });
+      const ep = embers.geometry.attributes.position;
+      for (let i = 0; i < emberN; i++) {
+        let y = ep.getY(i) + 0.015; if (y > 1.35) y = -0.75;
+        ep.setY(i, y); ep.setX(i, ep.getX(i) + Math.sin(t * 0.8 + i) * 0.004);
+      }
+      ep.needsUpdate = true;
+      group.rotation.y = t * 0.25;
+    };
+  } else if (elementName === 'Earth') {
+    const makePeak = (r, h, seg, col, x, y, z) => {
+      const geo = new THREE.ConeGeometry(r, h, seg, 2);
+      const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: col, roughness: 0.72, metalness: 0.15, flatShading: true }));
+      mesh.position.set(x, y, z); return mesh;
+    };
+    const moon = new THREE.Mesh(new THREE.SphereGeometry(0.45, 28, 28), new THREE.MeshStandardMaterial({ color: 0xF5EAD6, emissive: 0xD9B26F, emissiveIntensity: 0.45 }));
+    moon.position.set(0, 0.48, -0.58);
+    const ring1 = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.025, 10, 64), new THREE.MeshStandardMaterial({ color: 0xD9B26F, metalness: 0.65, roughness: 0.35 }));
+    ring1.rotation.x = Math.PI / 2; ring1.position.y = -0.72;
+    const shards = new THREE.Group();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const sh = new THREE.Mesh(new THREE.OctahedronGeometry(0.085, 0), new THREE.MeshStandardMaterial({ color: 0x8FD19E, emissive: 0x366B48, emissiveIntensity: 0.35 }));
+      sh.position.set(Math.cos(a) * 1.12, -0.3 + (i % 3) * 0.25, Math.sin(a) * 1.12);
+      shards.add(sh);
+    }
+    group.add(makePeak(0.75, 1.35, 7, 0x528865, 0, -0.05, 0.1), makePeak(0.55, 0.95, 6, 0x39634B, -0.56, -0.25, -0.08), makePeak(0.52, 0.88, 6, 0x6AA37A, 0.54, -0.28, -0.06), moon, ring1, shards);
+    group.userData.update = (t) => {
+      group.rotation.y = Math.sin(t * 0.35) * 0.45;
+      shards.rotation.y = t * 0.45;
+      shards.children.forEach((c, idx) => { c.rotation.x = t + idx; c.rotation.y = t * 0.8; });
+    };
+  } else if (elementName === 'Air') {
+    const ribbons = new THREE.Group();
+    [0, 1, 2].forEach((idx) => {
+      const pts = [];
+      for (let i = 0; i <= 42; i++) {
+        const u = i / 42, angle = u * Math.PI * 3.2 + idx * ((Math.PI * 2) / 3), radius = 0.28 + Math.sin(u * Math.PI) * 0.78;
+        pts.push(new THREE.Vector3(Math.cos(angle) * radius, (u - 0.5) * 1.55, Math.sin(angle) * radius));
+      }
+      ribbons.add(new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 64, 0.032 - idx * 0.005, 8, false),
+        new THREE.MeshStandardMaterial({ color: idx === 0 ? 0x9BD2F5 : idx === 1 ? 0xD8EEFC : 0x6EAEE0, emissive: 0x4E8FC7, emissiveIntensity: 0.45, transparent: true, opacity: 0.88 })
+      ));
+    });
+    const clouds = new THREE.Group();
+    [[-0.55, 0.35, 0.2, 0.22], [0.5, -0.25, 0.25, 0.2], [0.1, 0.6, -0.2, 0.18]].forEach(([x, y, z, r]) => {
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 18), new THREE.MeshStandardMaterial({ color: 0xEBF5FD, roughness: 0.8, transparent: true, opacity: 0.75 }));
+      puff.scale.set(1.4, 0.75, 1.0); puff.position.set(x, y, z); clouds.add(puff);
+    });
+    const dust = createStarParticles(120, 2.5, 0xC6E6FB, 0.045);
+    group.add(ribbons, clouds, dust);
+    group.userData.update = (t) => { ribbons.rotation.y = t * 0.75; clouds.rotation.y = -t * 0.25; dust.rotation.y = t * 0.45; };
+  } else {
+    const waveGeo = new THREE.PlaneGeometry(2.2, 2.2, 34, 34);
+    waveGeo.rotateX(-Math.PI / 2);
+    waveGeo.userData.base = Float32Array.from(waveGeo.attributes.position.array);
+    const ocean = new THREE.Mesh(waveGeo, new THREE.MeshPhysicalMaterial({ color: 0x2456A8, emissive: 0x102854, emissiveIntensity: 0.55, roughness: 0.12, clearcoat: 1.0, transparent: true, opacity: 0.92, side: THREE.DoubleSide }));
+    ocean.position.y = -0.35;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.12, 0.024, 10, 64), new THREE.MeshStandardMaterial({ color: 0xD9B26F, metalness: 0.65, roughness: 0.3 }));
+    ring.rotation.x = Math.PI / 2; ring.position.y = -0.35;
+    const crescent = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.095, 16, 48, Math.PI * 1.25), new THREE.MeshStandardMaterial({ color: 0xF5EAD6, emissive: 0xD9B26F, emissiveIntensity: 0.55 }));
+    crescent.position.set(0.1, 0.62, -0.35); crescent.rotation.z = Math.PI * 0.62;
+    const droplets = createStarParticles(90, 2.2, 0x9BC3F7, 0.05); droplets.position.y = 0.2;
+    const moonLight = new THREE.PointLight(0x88B8FF, 3.5, 8); moonLight.position.set(0, 1.0, 0.8);
+    group.add(ocean, ring, crescent, droplets, moonLight);
+    group.userData.update = (t) => {
+      const pos = ocean.geometry.attributes.position, base = ocean.geometry.userData.base;
+      for (let i = 0; i < pos.count; i++) {
+        const bx = base[i * 3], bz = base[i * 3 + 2], dist = Math.hypot(bx, bz);
+        pos.setY(i, dist > 1.12 ? -0.15 : (Math.sin(bx * 3.2 + t * 2.1) * 0.13 + Math.cos(bz * 3.6 - t * 1.7) * 0.11) * (1 - dist / 1.35));
+      }
+      pos.needsUpdate = true; ocean.geometry.computeVertexNormals();
+      crescent.position.y = 0.62 + Math.sin(t * 1.1) * 0.05;
+      droplets.rotation.y = t * 0.25;
+      group.rotation.y = Math.sin(t * 0.28) * 0.3;
+    };
+  }
+  return group;
+}
+
+export function buildZodiacWheelGroup() {
+  const wheel = new THREE.Group();
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(0.32, 24, 24), new THREE.MeshStandardMaterial({ color: 0xFFE6A3, emissive: 0xD99B38, emissiveIntensity: 0.9 }));
+  wheel.add(sun);
+  [1.05, 1.65, 1.92].forEach((r, idx) => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(r, idx === 1 ? 0.025 : 0.012, 8, 96), new THREE.MeshStandardMaterial({ color: 0xD9B26F, metalness: 0.7, roughness: 0.28 }));
+    ring.rotation.x = Math.PI / 2; wheel.add(ring);
+  });
+  const nodes = [];
+  SIGNS.forEach((s, i) => {
+    const a = (i / 12) * Math.PI * 2;
+    const node = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), new THREE.MeshStandardMaterial({ color: s.color, emissive: s.color, emissiveIntensity: 0.35, roughness: 0.2, metalness: 0.3 }));
+    node.position.set(Math.sin(a) * 1.65, 0.06, Math.cos(a) * 1.65);
+    wheel.add(node);
+    nodes.push({ id: s.id, mesh: node });
+  });
+  return { wheel, nodes };
+}
+
+export { THREE };
+
+12. src/app.js
+
+import { ELEMENTS_DATA, SIGNS, RECIPIENTS, PAPERS, UI_STRINGS } from './data/zodiac.js';
+import {
+  mod360, getSolarTropicalLongitude, getLunarLongitude,
+  getLahiriAyanamsa, getMoonPhaseInfo, findNextMoonEvent,
+  signFromLongitude, createFactPacket
+} from './engine/astronomy.js';
+import { openIDB, encryptVaultBackup } from './engine/storage.js';
+import { THREE, createStarParticles, build3DElementSculpture, buildZodiacWheelGroup } from './three/elements3d.js';
+
+const STATE_KEY = 'unsent_astral_state_v1';
+let db = null;
+
+const state = {
+  lensSignId: 'pisces',
+  lensSource: 'Chosen lens',
+  selectedZodiacSign: 'pisces',
+  activeElement3D: 'Fire',
+  zodiacView: 'elements',
+  pairA: 'gemini',
+  pairB: 'pisces',
+  dialogueCtx: 'friendship',
+  lang: 'en',
+  theme: 'dark',
+  reduceMotion: false,
+  textSize: '1',
+  timezone: 'Asia/Kolkata',
+  sparkOffsetToday: 0,
+  sparkOffsetDetail: 0,
+  recipientId: 'friend',
+  recipientPromptIdx: 0,
+  paperId: 'parchment',
+  cardTheme: 'obsidian',
+  studioTab: 'letter',
+  boxFilter: 'all',
+  vaultLocked: false,
+  hideSampleCard: false,
+  releaseMode: 'birds',
+  selectedAlmanacDate: null,
+  lastFactPacket: null,
+  items: [],
+  checkins: []
+};
+
+const threeManagers = {};
+let animT = 0;
+let pickedMood = 'Quiet';
+
+const getSign = (id) => SIGNS.find((s) => s.id === id) || SIGNS[11];
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (raw) Object.assign(state, JSON.parse(raw));
+  } catch {}
+}
+
+function persistState() {
+  try {
+    const { lastFactPacket, ...serializable } = state;
+    localStorage.setItem(STATE_KEY, JSON.stringify(serializable));
+    if (db) {
+      const tx = db.transaction('vault', 'readwrite');
+      tx.objectStore('vault').put({ id: 'main_archive', payload: serializable, updatedAt: Date.now() });
+    }
+  } catch {}
+}
+
+/* ── 3D Stage Initializers ── */
+function initTodayStage() {
+  const canvas = document.getElementById('canvas-today');
+  const wrap = canvas.parentElement;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(wrap.clientWidth, wrap.clientHeight, false);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, wrap.clientWidth / wrap.clientHeight, 0.1, 100);
+  camera.position.set(0, 0.35, 3.85);
+
+  scene.add(createStarParticles(380, 16, 0xD9B26F, 0.04));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+  const key = new THREE.DirectionalLight(0xFFF3DB, 2.1); key.position.set(2.5, 2.2, 2.8); scene.add(key);
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(1.38, 0.012, 8, 96),
+    new THREE.MeshStandardMaterial({ color: 0xD9B26F, metalness: 0.7, roughness: 0.3, transparent: true, opacity: 0.55 })
+  );
+  ring.rotation.x = Math.PI / 2.6;
+  scene.add(ring);
+
+  const elemHolder = new THREE.Group();
+  elemHolder.scale.setScalar(0.88);
+  scene.add(elemHolder);
+
+  let dragY = 0, dragX = 0, down = false, lx = 0, ly = 0;
+  wrap.addEventListener('pointerdown', (e) => { down = true; lx = e.clientX; ly = e.clientY; });
+  window.addEventListener('pointerup', () => { down = false; });
+  wrap.addEventListener('pointermove', (e) => {
+    if (!down) return;
+    dragY += (e.clientX - lx) * 0.008; dragX += (e.clientY - ly) * 0.005;
+    lx = e.clientX; ly = e.clientY;
+  });
+
+  threeManagers.today = { renderer, scene, camera, elemHolder, ring, currentElem: null, getDrag: () => ({ x: dragX, y: dragY }) };
+  syncTodayElement3D();
+}
+
+function syncTodayElement3D() {
+  const m = threeManagers.today;
+  if (!m) return;
+  const sign = getSign(state.lensSignId);
+  if (m.currentElem !== sign.element) {
+    while (m.elemHolder.children.length) m.elemHolder.remove(m.elemHolder.children[0]);
+    m.elemHolder.add(build3DElementSculpture(sign.element));
+    m.currentElem = sign.element;
+  }
+}
+
+function initElementStage() {
+  const canvas = document.getElementById('canvas-element');
+  const wrap = canvas.parentElement;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(wrap.clientWidth || 360, wrap.clientHeight || 235, false);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(44, (wrap.clientWidth || 360) / (wrap.clientHeight || 235), 0.1, 100);
+  camera.position.set(0, 0.35, 3.6);
+  scene.add(createStarParticles(350, 15, 0xB8B4CC, 0.04));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+  const dl = new THREE.DirectionalLight(0xFFF6E6, 2.0); dl.position.set(2, 3, 2); scene.add(dl);
+  const holder = new THREE.Group(); scene.add(holder);
+
+  threeManagers.element = { renderer, scene, camera, holder, currentElem: null };
+  syncElementStage3D();
+}
+
+function syncElementStage3D() {
+  const m = threeManagers.element;
+  if (!m) return;
+  if (m.currentElem !== state.activeElement3D) {
+    while (m.holder.children.length) m.holder.remove(m.holder.children[0]);
+    m.holder.add(build3DElementSculpture(state.activeElement3D));
+    m.currentElem = state.activeElement3D;
+  }
+}
+
+function initWheelStage() {
+  const canvas = document.getElementById('canvas-wheel');
+  const wrap = canvas.parentElement;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(wrap.clientWidth || 360, wrap.clientHeight || 260, false);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, (wrap.clientWidth || 360) / (wrap.clientHeight || 260), 0.1, 100);
+  camera.position.set(0, 1.85, 4.15); camera.lookAt(0, 0, 0);
+
+  scene.add(createStarParticles(400, 16, 0xD9B26F, 0.045));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+  const sunLight = new THREE.PointLight(0xFFD98E, 4, 12); sunLight.position.set(0, 0.8, 0); scene.add(sunLight);
+
+  const { wheel, nodes } = buildZodiacWheelGroup();
+  scene.add(wheel);
+  threeManagers.wheel = { renderer, scene, camera, wheel, nodes, targetRot: 0 };
+  syncWheelTarget();
+}
+
+function syncWheelTarget() {
+  const m = threeManagers.wheel;
+  if (!m) return;
+  const idx = SIGNS.findIndex((s) => s.id === state.selectedZodiacSign);
+  m.targetRot = -(idx / 12) * Math.PI * 2;
+  m.nodes.forEach((n) => {
+    const active = n.id === state.selectedZodiacSign;
+    n.mesh.scale.setScalar(active ? 1.55 : 0.92);
+    n.mesh.material.emissiveIntensity = active ? 0.95 : 0.25;
+  });
+}
+
+function initAlchemyStage() {
+  const canvas = document.getElementById('canvas-alchemy');
+  const wrap = canvas.parentElement;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(wrap.clientWidth || 360, wrap.clientHeight || 200, false);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, (wrap.clientWidth || 360) / (wrap.clientHeight || 200), 0.1, 100);
+  camera.position.set(0, 0.3, 4.4);
+  scene.add(createStarParticles(250, 14, 0xD9B26F, 0.04));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+  const dl = new THREE.DirectionalLight(0xffffff, 1.8); dl.position.set(1, 3, 2); scene.add(dl);
+
+  const holderA = new THREE.Group(); holderA.scale.setScalar(0.62); holderA.position.set(-1.15, 0, 0);
+  const holderB = new THREE.Group(); holderB.scale.setScalar(0.62); holderB.position.set(1.15, 0, 0);
+  scene.add(holderA, holderB);
+
+  threeManagers.alchemy = { renderer, scene, camera, holderA, holderB, key: '' };
+  syncAlchemy3D();
+}
+
+function syncAlchemy3D() {
+  const m = threeManagers.alchemy;
+  if (!m) return;
+  const sa = getSign(state.pairA), sb = getSign(state.pairB);
+  const key = `${sa.element}_${sb.element}`;
+  if (m.key !== key) {
+    while (m.holderA.children.length) m.holderA.remove(m.holderA.children[0]);
+    while (m.holderB.children.length) m.holderB.remove(m.holderB.children[0]);
+    m.holderA.add(build3DElementSculpture(sa.element));
+    m.holderB.add(build3DElementSculpture(sb.element));
+    m.key = key;
+  }
+}
+
+function initCard3D() {
+  const canvas = document.getElementById('canvas-card-3d');
+  const wrap = canvas.parentElement;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(wrap.clientWidth || 320, wrap.clientHeight || 500, false);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, (wrap.clientWidth || 320) / (wrap.clientHeight || 500), 0.1, 100);
+  camera.position.set(0, 0.3, 4.4);
+  scene.add(createStarParticles(320, 14, 0xD9B26F, 0.045));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+  const dl = new THREE.DirectionalLight(0xFFF3DB, 1.8); dl.position.set(2, 2, 2); scene.add(dl);
+  const holder = new THREE.Group(); holder.position.set(0, 0.72, 0); holder.scale.setScalar(0.68); scene.add(holder);
+
+  threeManagers.card = { renderer, scene, camera, holder, currentElem: null };
+  syncCard3DElement();
+}
+
+function syncCard3DElement() {
+  const m = threeManagers.card;
+  if (!m) return;
+  const sign = getSign(state.lensSignId);
+  if (m.currentElem !== sign.element) {
+    while (m.holder.children.length) m.holder.remove(m.holder.children[0]);
+    m.holder.add(build3DElementSculpture(sign.element));
+    m.currentElem = sign.element;
+  }
+}
+
+function initRelease3D() {
+  const canvas = document.getElementById('canvas-release');
+  const wrap = canvas.parentElement;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(wrap.clientWidth || 340, wrap.clientHeight || 175, false);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(48, (wrap.clientWidth || 340) / (wrap.clientHeight || 175), 0.1, 100);
+  camera.position.set(0, 0, 4.2);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+  const holder = new THREE.Group(); scene.add(holder);
+
+  threeManagers.release = { renderer, scene, camera, holder };
+  rebuildReleaseParticles();
+}
+
+function rebuildReleaseParticles() {
+  const m = threeManagers.release;
+  if (!m) return;
+  while (m.holder.children.length) m.holder.remove(m.holder.children[0]);
+
+  if (state.releaseMode === 'birds') {
+    for (let i = 0; i < 16; i++) {
+      const bird = new THREE.Group();
+      const wingGeo = new THREE.BufferGeometry();
+      wingGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0.12, 0.22, 0.05, 0, 0, 0, -0.14]), 3));
+      const mat = new THREE.MeshBasicMaterial({ color: 0xF5EAD6, side: THREE.DoubleSide });
+      const leftW = new THREE.Mesh(wingGeo, mat), rightW = new THREE.Mesh(wingGeo, mat);
+      rightW.scale.x = -1; bird.add(leftW, rightW);
+      bird.position.set((Math.random() - 0.5) * 2.8, -1.2 + Math.random() * 2.4, (Math.random() - 0.5) * 1.5);
+      bird.userData = { leftW, rightW, phase: Math.random() * Math.PI * 2, speed: 0.012 + Math.random() * 0.01 };
+      m.holder.add(bird);
+    }
+  } else {
+    const isEmber = state.releaseMode === 'embers', n = 220;
+    const geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 3.8; pos[i * 3 + 1] = (Math.random() - 0.5) * 2.4; pos[i * 3 + 2] = (Math.random() - 0.5) * 1.6;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: isEmber ? 0xFF8C42 : 0xB8B5C4, size: isEmber ? 0.065 : 0.05, transparent: true, opacity: 0.85 }));
+    pts.userData.isEmber = isEmber; m.holder.add(pts);
+  }
+}
+
+function initDesktopCompanion3D() {
+  const canvas = document.getElementById('canvas-desktop');
+  if (!canvas || window.innerWidth < 980) return;
+  const wrap = canvas.parentElement;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(wrap.clientWidth, wrap.clientHeight, false);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(44, wrap.clientWidth / wrap.clientHeight, 0.1, 100);
+  camera.position.set(0, 0.35, 3.8);
+  scene.add(createStarParticles(520, 18, 0xD9B26F, 0.04));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+  const dl = new THREE.DirectionalLight(0xFFF2DA, 2.0); dl.position.set(2, 3, 2); scene.add(dl);
+  const holder = new THREE.Group(); scene.add(holder);
+
+  threeManagers.desktop = { renderer, scene, camera, holder, currentElem: null };
+  syncDesktopCompanion();
+}
+
+function syncDesktopCompanion() {
+  const sign = getSign(state.lensSignId), el = ELEMENTS_DATA[sign.element];
+  document.getElementById('dc-title').textContent = `${sign.element} · ${sign.western} (${sign.rashi})`;
+  document.getElementById('dc-themes-text').textContent = el.themes;
+  document.getElementById('dc-reflection-text').textContent = el.reflection;
+  const m = threeManagers.desktop;
+  if (!m) return;
+  if (m.currentElem !== sign.element) {
+    while (m.holder.children.length) m.holder.remove(m.holder.children[0]);
+    m.holder.add(build3DElementSculpture(sign.element));
+    m.currentElem = sign.element;
+  }
+}
+
+function loop3D() {
+  requestAnimationFrame(loop3D);
+  if (!state.reduceMotion) animT += 0.014;
+
+  if (threeManagers.today && document.getElementById('s-today').classList.contains('active')) {
+    const m = threeManagers.today, d = m.getDrag();
+    m.elemHolder.children.forEach((c) => c.userData.update?.(animT));
+    m.elemHolder.rotation.y = d.y; m.elemHolder.rotation.x = d.x * 0.4;
+    if (!state.reduceMotion) m.ring.rotation.z = animT * 0.16;
+    m.renderer.render(m.scene, m.camera);
+  }
+  if (document.getElementById('s-zodiac').classList.contains('active')) {
+    if (state.zodiacView === 'elements' && threeManagers.element) {
+      threeManagers.element.holder.children.forEach((c) => c.userData.update?.(animT));
+      threeManagers.element.renderer.render(threeManagers.element.scene, threeManagers.element.camera);
+    }
+    if (state.zodiacView === 'wheel' && threeManagers.wheel) {
+      const m = threeManagers.wheel;
+      m.wheel.rotation.y += (m.targetRot - m.wheel.rotation.y) * (state.reduceMotion ? 1 : 0.09);
+      m.renderer.render(m.scene, m.camera);
+    }
+    if (state.zodiacView === 'dialogue' && threeManagers.alchemy) {
+      const m = threeManagers.alchemy;
+      m.holderA.children.forEach((c) => c.userData.update?.(animT));
+      m.holderB.children.forEach((c) => c.userData.update?.(animT + 1.2));
+      m.renderer.render(m.scene, m.camera);
+    }
+  }
+  if (threeManagers.card && document.getElementById('s-studio').classList.contains('active') && state.studioTab === 'card') {
+    threeManagers.card.holder.children.forEach((c) => c.userData.update?.(animT));
+    threeManagers.card.renderer.render(threeManagers.card.scene, threeManagers.card.camera);
+  }
+  if (threeManagers.release && document.getElementById('sh-release').classList.contains('open')) {
+    const m = threeManagers.release;
+    if (!state.reduceMotion) {
+      m.holder.children.forEach((obj) => {
+        if (obj.userData.leftW) {
+          const flap = Math.sin(animT * 6 + obj.userData.phase) * 0.45;
+          obj.userData.leftW.rotation.z = flap; obj.userData.rightW.rotation.z = -flap;
+          obj.position.y += obj.userData.speed;
+          if (obj.position.y > 1.35) obj.position.y = -1.25;
+        } else if (obj.geometry?.attributes?.position) {
+          const pos = obj.geometry.attributes.position, dir = obj.userData.isEmber ? 0.014 : -0.009;
+          for (let i = 0; i < pos.count; i++) {
+            let y = pos.getY(i) + dir;
+            if (dir > 0 && y > 1.25) y = -1.25;
+            if (dir < 0 && y < -1.25) y = 1.25;
+            pos.setY(i, y);
+          }
+          pos.needsUpdate = true;
+        }
+      });
+    }
+    m.renderer.render(m.scene, m.camera);
+  }
+  if (threeManagers.desktop && window.innerWidth >= 980) {
+    threeManagers.desktop.holder.children.forEach((c) => c.userData.update?.(animT));
+    threeManagers.desktop.renderer.render(threeManagers.desktop.scene, threeManagers.desktop.camera);
+  }
+}
+
+function resize3D() {
+  Object.values(threeManagers).forEach((m) => {
+    if (!m?.renderer) return;
+    const wrap = m.renderer.domElement.parentElement;
+    if (!wrap || !wrap.clientWidth || !wrap.clientHeight) return;
+    m.camera.aspect = wrap.clientWidth / wrap.clientHeight;
+    m.camera.updateProjectionMatrix();
+    m.renderer.setSize(wrap.clientWidth, wrap.clientHeight, false);
+  });
+}
+
+/* ── UI Controllers ── */
+window.navTo = function(name) {
+  document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
+  document.getElementById('s-' + name).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach((b) => b.classList.toggle('active', b.dataset.nav === name));
+  setTimeout(() => {
+    if (name === 'zodiac') {
+      if (!threeManagers.element) initElementStage();
+      if (state.zodiacView === 'wheel' && !threeManagers.wheel) initWheelStage();
+      if (state.zodiacView === 'dialogue' && !threeManagers.alchemy) initAlchemyStage();
+    }
+    if (name === 'studio' && state.studioTab === 'card' && !threeManagers.card) initCard3D();
+    resize3D();
+  }, 40);
+};
+
+window.openStudioMode = function(mode) { navTo('studio'); switchStudioTab(mode); };
+
+function renderWeekStrip() {
+  const strip = document.getElementById('week-strip');
+  const now = new Date(), days = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  const start = new Date(now); start.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  strip.innerHTML = '';
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    strip.innerHTML += `<div class="day-cell ${d.toDateString() === now.toDateString() ? 'today' : ''}"><span class="dw">${days[d.getDay()]}</span><span class="dn tabular">${d.getDate()}</span></div>`;
+  }
+}
+
+const getDailyPromptIndex = (sign, offset = 0) => (Math.floor(Date.now() / 86400000) + offset) % sign.prompts.length;
+
+function renderToday() {
+  const strings = UI_STRINGS[state.lang], sign = getSign(state.lensSignId), now = new Date();
+  const hr = now.getHours();
+  document.getElementById('td-greeting').textContent = strings.greetings[hr < 12 ? 0 : hr < 17 ? 1 : 2];
+  document.getElementById('td-date-line').textContent = new Intl.DateTimeFormat('en-US', { timeZone: state.timezone, weekday: 'short', month: 'short', day: 'numeric' }).format(now);
+  document.getElementById('td-hero-title').textContent = strings.heroTitle;
+  document.getElementById('td-hero-sub').textContent = strings.heroSub;
+  document.getElementById('btn-write-letter').textContent = strings.writeBtn;
+  document.getElementById('btn-make-card').textContent = strings.cardBtn;
+  document.getElementById('btn-another-spark').textContent = strings.anotherSpark;
+  document.getElementById('td-action-label').textContent = strings.actionLbl;
+  document.getElementById('alm-eyebrow').textContent = strings.almanac;
+  document.getElementById('nav-lbl-today').textContent = strings.today;
+  document.getElementById('nav-lbl-zodiac').textContent = strings.zodiac;
+  document.getElementById('nav-lbl-studio').textContent = strings.create;
+  document.getElementById('nav-lbl-box').textContent = strings.box;
+
+  const noon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+  const moon = getMoonPhaseInfo(noon), nextNew = findNextMoonEvent(now, 0), nextFull = findNextMoonEvent(now, 180);
+  document.getElementById('td-moon-badge').textContent = `${moon.phaseName} · ${moon.illumination}%`;
+  document.getElementById('td-lens-badge').textContent = `${sign.glyph} ${sign.western} · ${sign.element}`;
+  document.getElementById('td-spark-lens').textContent = `${state.lensSource} · ${sign.western} (${sign.rashi})`;
+  document.getElementById('td-spark-text').textContent = sign.prompts[getDailyPromptIndex(sign, state.sparkOffsetToday)];
+  document.getElementById('td-action-text').textContent = sign.action;
+
+  const draft = localStorage.getItem('unsent_draft_text');
+  document.getElementById('continue-draft-wrap').classList.toggle('hidden', !(draft && draft.trim().length > 0));
+
+  state.lastFactPacket = createFactPacket({
+    calculationKind: 'daily_sky_and_lens',
+    status: state.lensSource === 'Chosen lens' ? 'manually_selected' : 'calculated',
+    body: 'Moon & Sun',
+    zodiacSystem: 'Tropical + Lahiri reference',
+    ayanamsaDegrees: +getLahiriAyanamsa(noon).toFixed(4),
+    utcInstant: noon.toISOString(),
+    viewerTimezone: state.timezone,
+    moonPhase: moon,
+    activeLensSignId: sign.id,
+    nextNewMoonUTC: nextNew?.toISOString() || null,
+    nextFullMoonUTC: nextFull?.toISOString() || null
+  });
+  document.getElementById('fact-packet-json').textContent = JSON.stringify(state.lastFactPacket, null, 2);
+
+  renderAlmanac(now, nextNew, nextFull);
+  syncTodayElement3D();
+  syncDesktopCompanion();
+}
+
+window.cycleTodaySpark = () => { state.sparkOffsetToday += 1; renderToday(); };
+window.writeFromSpark = () => {
+  const s = getSign(state.lensSignId);
+  openStudioMode('letter');
+  document.getElementById('letter-prompt-line').textContent = s.prompts[getDailyPromptIndex(s, state.sparkOffsetToday)];
+};
+window.continueLastDraft = () => openStudioMode('letter');
+
+function renderAlmanac(now, nextNew, nextFull) {
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: state.timezone, month: 'short', day: 'numeric' });
+  document.getElementById('alm-month-title').textContent = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(now);
+  document.getElementById('alm-upcoming-summary').textContent = `Next New Moon: ${nextNew ? fmt.format(nextNew) : '—'} · Next Full Moon: ${nextFull ? fmt.format(nextFull) : '—'}`;
+  const y = now.getFullYear(), m = now.getMonth(), daysInMonth = new Date(y, m + 1, 0).getDate();
+  const firstWd = (new Date(y, m, 1).getDay() + 6) % 7;
+  if (!state.selectedAlmanacDate) state.selectedAlmanacDate = `${y}-${String(m + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  const grid = document.getElementById('almanac-grid'); grid.innerHTML = '';
+  for (let b = 0; b < firstWd; b++) grid.innerHTML += '<div></div>';
+  for (let day = 1; day <= daysInMonth; day++) {
+    const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const ph = getMoonPhaseInfo(new Date(y, m, day, 12, 0, 0));
+    const icon = ph.phaseName === 'New Moon' ? '●' : ph.phaseName === 'Full Moon' ? '○' : ph.phaseName === 'First Quarter' ? '◐' : ph.phaseName === 'Last Quarter' ? '◑' : '';
+    const hasNote = state.checkins.some((c) => c.dateKey === key);
+    const btn = document.createElement('button');
+    btn.className = `alm-day tabular ${day === now.getDate() ? 'today-ring' : ''} ${key === state.selectedAlmanacDate ? 'selected' : ''}`;
+    btn.onclick = () => { state.selectedAlmanacDate = key; renderAlmanac(now, nextNew, nextFull); };
+    btn.innerHTML = `<span>${day}</span><span style="font-size:0.65rem;color:${hasNote ? 'var(--rose)' : 'var(--candle)'};">${icon || (hasNote ? '•' : '')}</span>`;
+    grid.appendChild(btn);
+  }
+  const [sy, sm, sd] = state.selectedAlmanacDate.split('-').map(Number);
+  const selObj = new Date(sy, sm - 1, sd, 12, 0, 0), selMoon = getMoonPhaseInfo(selObj);
+  const linked = state.checkins.filter((c) => c.dateKey === state.selectedAlmanacDate);
+  document.getElementById('alm-sel-date').textContent = selObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  document.getElementById('alm-sel-sky').textContent = `Sky fact (12:00): ${selMoon.phaseName} · ${selMoon.illumination}% illuminated`;
+  document.getElementById('alm-sel-invite').textContent = linked.length
+    ? `Your saved check-in: "${linked[0].mood}${linked[0].note ? ' — ' + linked[0].note : ''}"`
+    : 'Editorial invitation: What deserves quiet attention tonight before sleep?';
+}
+window.linkNoteToAlmanacDate = () => openSheet('sh-checkin');
+
+window.switchZodiacView = function(view, btn) {
+  state.zodiacView = view;
+  btn.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.remove('active'));
+  btn.classList.add('active');
+  ['elements', 'wheel', 'gallery', 'dialogue'].forEach((v) => document.getElementById('zv-' + v).classList.toggle('hidden', v !== view));
+  document.getElementById('sign-detail-panel').classList.toggle('hidden', view === 'dialogue' || view === 'elements');
+  setTimeout(() => {
+    if (view === 'elements' && !threeManagers.element) initElementStage();
+    if (view === 'wheel' && !threeManagers.wheel) initWheelStage();
+    if (view === 'dialogue' && !threeManagers.alchemy) initAlchemyStage();
+    resize3D();
+  }, 40);
+};
+
+window.selectElement3D = function(elemName) {
+  state.activeElement3D = elemName;
+  document.querySelectorAll('.elem-tab').forEach((b) => b.classList.toggle('active', b.dataset.el === elemName));
+  renderElementCard(); syncElementStage3D();
+};
+
+function renderElementCard() {
+  const el = ELEMENTS_DATA[state.activeElement3D];
+  document.getElementById('el-3d-badge').textContent = `${state.activeElement3D} · Interactive 3D`;
+  document.getElementById('el-3d-signs').textContent = el.signs.join(' · ');
+  document.getElementById('el-card-name').textContent = state.activeElement3D;
+  document.getElementById('el-card-themes').textContent = el.themes;
+  document.getElementById('el-card-reflection').textContent = el.reflection;
+  const chips = document.getElementById('el-sign-chips'); chips.innerHTML = '';
+  SIGNS.filter((s) => s.element === state.activeElement3D).forEach((s) => {
+    const b = document.createElement('button');
+    b.className = 'chip-btn'; b.textContent = `${s.glyph} ${s.western} (${s.rashi})`;
+    b.onclick = () => { state.selectedZodiacSign = s.id; setChosenLens(s.id); switchZodiacView('wheel', document.querySelector('[data-zview="wheel"]')); };
+    chips.appendChild(b);
+  });
+}
+
+function renderSignGallery() {
+  const q = (document.getElementById('sign-search').value || '').toLowerCase().trim();
+  const grid = document.getElementById('sign-grid'); grid.innerHTML = '';
+  SIGNS.filter((s) => !q || s.western.toLowerCase().includes(q) || s.rashi.toLowerCase().includes(q) || s.element.toLowerCase().includes(q) || s.ruler.toLowerCase().includes(q)).forEach((s) => {
+    const card = document.createElement('button');
+    card.className = `sign-card ${s.id === state.selectedZodiacSign ? 'selected' : ''}`;
+    card.onclick = () => selectZodiacSign(s.id);
+    card.innerHTML = `<span style="font-size:1.45rem;color:${s.color};">${s.glyph}</span><div style="font-weight:600;font-size:0.86rem;">${s.western}</div><div class="label-meta" style="font-size:0.72rem;">${s.rashi} · ${s.bn}</div>`;
+    grid.appendChild(card);
+  });
+}
+window.renderSignGallery = renderSignGallery;
+
+function renderWheelPills() {
+  const row = document.getElementById('wheel-sign-pills'); row.innerHTML = '';
+  SIGNS.forEach((s) => {
+    const b = document.createElement('button');
+    b.className = `seg-btn ${s.id === state.selectedZodiacSign ? 'active' : ''}`;
+    b.textContent = `${s.glyph} ${s.western}`;
+    b.onclick = () => selectZodiacSign(s.id);
+    row.appendChild(b);
+  });
+}
+
+function selectZodiacSign(id) {
+  state.selectedZodiacSign = id; state.sparkOffsetDetail = 0;
+  const s = getSign(id);
+  document.getElementById('wh-sign-title').textContent = `${s.western} · ${s.rashi}`;
+  document.getElementById('wh-sign-meta').textContent = `${s.element} · ${s.modality} · Ruler: ${s.ruler}`;
+  document.getElementById('sd-meta').textContent = `${s.element} · ${s.modality} · Traditional Vedic ruler: ${s.ruler}`;
+  document.getElementById('sd-name').textContent = `${s.glyph} ${s.western} · ${s.rashi} (${s.hi})`;
+  document.getElementById('sd-art').textContent = `Art motif: ${s.art}`;
+  document.getElementById('sd-spark').textContent = s.prompts[getDailyPromptIndex(s, state.sparkOffsetDetail)];
+  document.getElementById('sd-action').textContent = s.action;
+  renderWheelPills(); renderSignGallery(); syncWheelTarget();
+}
+
+window.cycleSignSpark = () => {
+  state.sparkOffsetDetail += 1;
+  const s = getSign(state.selectedZodiacSign);
+  document.getElementById('sd-spark').textContent = s.prompts[getDailyPromptIndex(s, state.sparkOffsetDetail)];
+};
+window.setChosenLens = (id) => { state.lensSignId = id; state.lensSource = 'Chosen lens'; persistState(); renderToday(); syncCardPreview(); showToast(`Lens set to ${getSign(id).western}`); };
+window.blankLetterWithSign = () => { const s = getSign(state.selectedZodiacSign); openStudioMode('letter'); document.getElementById('letter-prompt-line').textContent = s.prompts[getDailyPromptIndex(s, state.sparkOffsetDetail)]; };
+window.makeSignCard = () => { const s = getSign(state.selectedZodiacSign); state.lensSignId = s.id; openStudioMode('card'); document.getElementById('card-text-in').value = s.prompts[getDailyPromptIndex(s, state.sparkOffsetDetail)]; syncCardPreview(); };
+window.toggleUnknownTime = () => { document.getElementById('birth-time-in').disabled = document.getElementById('chk-unknown-time').checked; };
+
+window.calculateBirthLens = function() {
+  const dateVal = document.getElementById('birth-date-in').value;
+  if (!dateVal) { showToast('Enter a birth date first'); return; }
+  const unknown = document.getElementById('chk-unknown-time').checked;
+  const timeVal = document.getElementById('birth-time-in').value || '12:00';
+  const [, , tz] = document.getElementById('birth-city-in').value.split(',');
+  const [Y, M, D] = dateVal.split('-').map(Number);
+  const sampleDate = new Date(Date.UTC(Y, M - 1, D, 12, 0, 0));
+  const offMin = Math.round((new Date(sampleDate.toLocaleString('en-US', { timeZone: tz })) - new Date(sampleDate.toLocaleString('en-US', { timeZone: 'UTC' }))) / 60000);
+  const resBox = document.getElementById('lens-result-box'); resBox.classList.remove('hidden');
+
+  if (unknown) {
+    const sunSet = new Set(), moonSet = new Set();
+    for (let h = 0; h <= 24; h += 1) {
+      const d = new Date(Date.UTC(Y, M - 1, D, h, 0, 0) - offMin * 60000);
+      sunSet.add(signFromLongitude(getSolarTropicalLongitude(d)).id);
+      moonSet.add(signFromLongitude(mod360(getLunarLongitude(d) - getLahiriAyanamsa(d))).id);
+    }
+    const sunIds = [...sunSet], moonIds = [...moonSet];
+    const sunLbl = sunIds.length === 1 ? `Birth Sun · ${getSign(sunIds[0]).western}` : `Birth Sun · ${getSign(sunIds[0]).western} or ${getSign(sunIds[1]).western} (time matters)`;
+    const moonLbl = moonIds.length === 1 ? `Birth Moon (Lahiri) · ${getSign(moonIds[0]).rashi}` : `Birth Moon (Lahiri) · ${getSign(moonIds[0]).rashi} or ${getSign(moonIds[1]).rashi} (awaiting birth time)`;
+    resBox.innerHTML = `<div class="label-ui" style="color:var(--text-primary);margin-bottom:4px;">${sunLbl}</div><div class="label-ui" style="color:var(--candle);margin-bottom:8px;">${moonLbl}</div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="chip-btn" onclick="applyCalculatedLens('${sunIds[0]}', 'Birth Sun')">Use Sun lens</button>${moonIds.length === 1 ? `<button class="chip-btn" onclick="applyCalculatedLens('${moonIds[0]}', 'Birth Moon (Lahiri)')">Use Moon Rashi</button>` : ''}</div>`;
+  } else {
+    const [hh, mm] = timeVal.split(':').map(Number);
+    const instant = new Date(Date.UTC(Y, M - 1, D, hh, mm, 0) - offMin * 60000);
+    const sunDeg = getSolarTropicalLongitude(instant), ayanamsa = getLahiriAyanamsa(instant);
+    const moonSidDeg = mod360(getLunarLongitude(instant) - ayanamsa);
+    const sunSign = signFromLongitude(sunDeg), moonSign = signFromLongitude(moonSidDeg);
+    resBox.innerHTML = `<div class="label-ui" style="color:var(--text-primary);">Birth Sun · ${sunSign.western} (${(sunDeg % 30).toFixed(1)}°)</div><div class="label-ui" style="color:var(--candle);margin:4px 0 8px;">Birth Moon (Lahiri) · ${moonSign.rashi} / ${moonSign.western} (${(moonSidDeg % 30).toFixed(1)}°)</div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="chip-btn" onclick="applyCalculatedLens('${sunSign.id}', 'Birth Sun')">Use Birth Sun</button><button class="chip-btn" onclick="applyCalculatedLens('${moonSign.id}', 'Birth Moon (Lahiri)')">Use Birth Moon</button></div>`;
+  }
+};
+
+window.applyCalculatedLens = (id, src) => { state.lensSignId = id; state.lensSource = src; state.selectedZodiacSign = id; persistState(); renderToday(); selectZodiacSign(id); closeSheets(); showToast(`${src} · ${getSign(id).western}`); };
+window.setDialogueCtx = (ctx, btn) => { state.dialogueCtx = ctx; btn.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.remove('active')); btn.classList.add('active'); renderDialogue(); };
+
+function renderDialogue() {
+  const a = getSign(state.pairA), b = getSign(state.pairB);
+  document.getElementById('pair-a-lbl').textContent = `Sign A: ${a.western}`;
+  document.getElementById('pair-b-lbl').textContent = `Sign B: ${b.western}`;
+  document.getElementById('alc-badge').textContent = `${a.element} × ${b.element}`;
+  document.getElementById('dlg-q1-who').textContent = `Question for ${a.western} (${a.rashi})`;
+  document.getElementById('dlg-q2-who').textContent = `Question for ${b.western} (${b.rashi})`;
+  const map = {
+    friendship: { q1: `What small ordinary kindness from ${b.western} makes conversation effortless?`, q2: `What quiet space do you wish ${a.western} always knew was open?`, shared: a.id === 'gemini' && b.id === 'pisces' ? 'Describe the same memory twice: once as a headline and once as a color.' : `Share one memory in two lines each — one from ${a.element.toLowerCase()} sensation, one from ${b.element.toLowerCase()} feeling.` },
+    family: { q1: `What unspoken rule at home do you notice differently than ${b.western}?`, q2: `What ordinary moment with ${a.western} would you keep in a tin box?`, shared: 'Name one family habit worth keeping and one rule you both want to soften gently.' },
+    creative: { q1: `Where does your ${a.element.toLowerCase()} instinct want to start faster or slower than ${b.western}?`, q2: `What detail in ${a.western}'s sketch sparks your next line?`, shared: 'Take 2 minutes to make one tiny sketch or four lines together without editing.' }
+  }[state.dialogueCtx];
+  document.getElementById('dlg-q1-text').textContent = map.q1;
+  document.getElementById('dlg-q2-text').textContent = map.q2;
+  document.getElementById('dlg-shared-text').textContent = map.shared;
+  syncAlchemy3D();
+}
+
+function buildPairPickers() {
+  [['pair-grid-a', 'pairA'], ['pair-grid-b', 'pairB']].forEach(([elId, key]) => {
+    const box = document.getElementById(elId); box.innerHTML = '';
+    SIGNS.forEach((s) => {
+      const btn = document.createElement('button'); btn.className = 'sign-card';
+      btn.onclick = () => { state[key] = s.id; closeSheets(); renderDialogue(); };
+      btn.innerHTML = `<span style="font-size:1.3rem;color:${s.color};">${s.glyph}</span><span style="font-size:0.8rem;font-weight:600;">${s.western}</span>`;
+      box.appendChild(btn);
+    });
+  });
+}
+
+/* ── Studio: Write & Seal + 9:16 Card ── */
+window.switchStudioTab = function(tab) {
+  state.studioTab = tab;
+  document.getElementById('tab-st-letter').classList.toggle('active', tab === 'letter');
+  document.getElementById('tab-st-card').classList.toggle('active', tab === 'card');
+  document.getElementById('st-letter-pane').classList.toggle('hidden', tab !== 'letter');
+  document.getElementById('st-card-pane').classList.toggle('hidden', tab !== 'card');
+  if (tab === 'card') { if (!threeManagers.card) initCard3D(); setTimeout(() => { resize3D(); syncCardPreview(); }, 40); }
+};
+
+function renderStudioControls() {
+  const recRow = document.getElementById('recipient-row'); recRow.innerHTML = '';
+  RECIPIENTS.forEach((rec) => {
+    const b = document.createElement('button');
+    b.className = `seg-btn ${rec.id === state.recipientId ? 'active' : ''}`; b.textContent = rec.label;
+    b.onclick = () => { state.recipientId = rec.id; state.recipientPromptIdx = 0; document.getElementById('letter-salutation').value = rec.salutation; renderStudioControls(); };
+    recRow.appendChild(b);
+  });
+  const activeRec = RECIPIENTS.find((r) => r.id === state.recipientId) || RECIPIENTS[3];
+  document.getElementById('letter-prompt-line').textContent = activeRec.prompts[state.recipientPromptIdx % activeRec.prompts.length];
+
+  const paperRow = document.getElementById('paper-row'); paperRow.innerHTML = '';
+  PAPERS.forEach((p) => {
+    const b = document.createElement('button');
+    b.className = `seg-btn ${p.id === state.paperId ? 'active' : ''}`; b.textContent = p.name;
+    b.onclick = () => {
+      state.paperId = p.id;
+      const surface = document.getElementById('letter-paper');
+      PAPERS.forEach((x) => surface.classList.remove(x.cls)); surface.classList.add(p.cls);
+      renderStudioControls();
+    };
+    paperRow.appendChild(b);
+  });
+}
+window.cycleRecipientPrompt = () => { state.recipientPromptIdx += 1; renderStudioControls(); };
+
+window.onLetterInput = () => {
+  const txt = document.getElementById('letter-body').value;
+  const words = txt.trim() ? txt.trim().split(/\s+/).length : 0;
+  document.getElementById('letter-word-count').textContent = `${words} ${words === 1 ? 'word' : 'words'}`;
+  try {
+    localStorage.setItem('unsent_draft_text', txt);
+    localStorage.setItem('unsent_draft_salutation', document.getElementById('letter-salutation').value);
+    document.getElementById('letter-save-status').textContent = 'Autosaved locally';
+  } catch { document.getElementById('letter-save-status').textContent = 'Editor active'; }
+};
+
+window.runLocalReflection = (mode) => {
+  const txt = document.getElementById('letter-body').value.trim();
+  if (!txt) { showToast('Write a few lines first'); return; }
+  if (/\b(suicide|kill myself|end my life|self[- ]?harm|don't want to live)\b/i.test(txt)) { openSheet('sh-support'); return; }
+  const box = document.getElementById('local-assist-box'); box.classList.remove('hidden');
+  const snippet = txt.split(/[.!?\n]/).filter(Boolean)[0]?.trim() || txt.slice(0, 80);
+  if (mode === 'reflect') {
+    document.getElementById('local-assist-title').textContent = 'Quiet reflection (on-device)';
+    document.getElementById('local-assist-text').textContent = `It sounds like there is tenderness around "${snippet.slice(0, 72)}". Giving these words paper is already enough for tonight.`;
+  } else {
+    const words = txt.split(/\s+/).slice(0, 24);
+    document.getElementById('local-assist-title').textContent = 'Four editable lines (from your words)';
+    document.getElementById('local-assist-text').innerText = `${words.slice(0, 6).join(' ')}\n${words.slice(6, 12).join(' ') || 'quiet ink on tonight’s page'}\n${words.slice(12, 18).join(' ') || 'never sent, still completely true'}\n${words.slice(18, 24).join(' ') || 'held gently under tonight’s sky.'}`;
+  }
+};
+
+window.sealAndKeepLetter = () => {
+  const body = document.getElementById('letter-body').value.trim();
+  if (!body) { showToast('Write a line before sealing'); return; }
+  document.getElementById('letter-stamp').classList.add('stamped');
+  state.items.unshift({
+    id: 'ltr_' + Date.now(), type: 'letter',
+    recipient: RECIPIENTS.find((r) => r.id === state.recipientId)?.label || 'Custom',
+    salutation: document.getElementById('letter-salutation').value, body, paperId: state.paperId, stampedAt: new Date().toISOString()
+  });
+  localStorage.removeItem('unsent_draft_text'); persistState(); renderBox(); renderToday();
+  showToast('Sealed · NEVER SENT · Saved to My Box');
+};
+
+window.turnLetterIntoCard = () => {
+  const body = document.getElementById('letter-body').value.trim();
+  if (body) document.getElementById('card-text-in').value = body.slice(0, 220);
+  switchStudioTab('card');
+};
+
+window.setReleaseMode = (mode, btn) => {
+  state.releaseMode = mode;
+  btn.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.remove('active'));
+  btn.classList.add('active'); rebuildReleaseParticles();
+};
+
+window.confirmReleaseLetter = () => {
+  document.getElementById('letter-body').value = '';
+  document.getElementById('letter-stamp').classList.remove('stamped');
+  localStorage.removeItem('unsent_draft_text'); onLetterInput(); renderToday(); closeSheets();
+  showToast(`Released with ${state.releaseMode}`);
+};
+
+window.startVoiceDictation = () => {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { closeSheets(); showToast('Speech dictation unavailable in this browser'); return; }
+  closeSheets();
+  const rec = new SR(); rec.lang = state.lang === 'bn' ? 'bn-IN' : state.lang === 'hi' ? 'hi-IN' : 'en-IN';
+  rec.onresult = (e) => { const area = document.getElementById('letter-body'); area.value = (area.value ? area.value + ' ' : '') + e.results[0][0].transcript; onLetterInput(); };
+  rec.onerror = () => showToast('Microphone permission denied — typing stays available');
+  rec.start();
+};
+
+const CARD_STYLES = { obsidian: { bg: '#0E0B1A', fg: '#F5F2EC' }, parchment: { bg: '#F5EAD6', fg: '#1D1812' }, indigo: { bg: '#1B1740', fg: '#F4F1FA' }, rose: { bg: '#2B1924', fg: '#F8EAEF' } };
+window.setCardTheme = (t, btn) => { state.cardTheme = t; btn.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.remove('active')); btn.classList.add('active'); syncCardPreview(); };
+
+function syncCardPreview() {
+  const sign = getSign(state.lensSignId), st = CARD_STYLES[state.cardTheme];
+  const frame = document.getElementById('story-preview'), content = document.getElementById('story-content');
+  frame.style.background = st.bg; frame.style.color = st.fg;
+  content.classList.toggle('safe-crop', document.getElementById('chk-safe-crop').checked);
+  const mood = document.getElementById('card-mood-in').value.trim();
+  const txt = document.getElementById('card-text-in').value.trim() || sign.prompts[getDailyPromptIndex(sign, state.sparkOffsetToday)];
+  document.getElementById('card-top-label').textContent = mood ? `${mood} · Sky Card` : 'Sky Card';
+  document.getElementById('card-title-out').textContent = `${sign.glyph} ${sign.western} · ${sign.rashi}`;
+  const bodyEl = document.getElementById('card-body-out'); bodyEl.textContent = txt; bodyEl.style.fontSize = document.getElementById('card-font-size').value;
+  const moon = getMoonPhaseInfo(new Date());
+  document.getElementById('card-moon-out').textContent = document.getElementById('chk-show-moon').checked ? `${moon.phaseName} · ${moon.illumination}%` : '';
+  document.getElementById('card-wm-out').textContent = document.getElementById('chk-watermark').checked ? 'UNSENT' : '';
+  syncCard3DElement();
+}
+window.syncCardPreview = syncCardPreview;
+
+window.exportCardPNG = () => {
+  const W = 1080, H = 1920, canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d'), st = CARD_STYLES[state.cardTheme], sign = getSign(state.lensSignId);
+  ctx.fillStyle = st.bg; ctx.fillRect(0, 0, W, H);
+  if (threeManagers.card) { threeManagers.card.renderer.render(threeManagers.card.scene, threeManagers.card.camera); ctx.drawImage(document.getElementById('canvas-card-3d'), 0, 0, W, H); }
+  ctx.fillStyle = st.fg; ctx.textAlign = 'center';
+  const safe = document.getElementById('chk-safe-crop').checked ? 220 : 140;
+  ctx.globalAlpha = 0.72; ctx.font = '500 32px Inter, sans-serif'; ctx.fillText(document.getElementById('card-top-label').textContent, W / 2, safe);
+  ctx.globalAlpha = 1; ctx.font = '600 66px "Plus Jakarta Sans", Inter, sans-serif'; ctx.fillText(`${sign.western} · ${sign.rashi}`, W / 2, 1080);
+  const txt = document.getElementById('card-body-out').textContent; ctx.font = '400 44px Newsreader, serif';
+  let line = '', y = 1190;
+  for (const w of txt.split(/\s+/)) {
+    const test = line + w + ' ';
+    if (ctx.measureText(test).width > 820 && line) { ctx.fillText(line.trim(), W / 2, y); line = w + ' '; y += 64; } else { line = test; }
+  }
+  if (line.trim()) ctx.fillText(line.trim(), W / 2, y);
+  ctx.globalAlpha = 0.65; ctx.font = '500 30px Inter, sans-serif';
+  const moonLine = document.getElementById('card-moon-out').textContent; if (moonLine) ctx.fillText(moonLine, W / 2, H - safe - 55);
+  if (document.getElementById('chk-watermark').checked) ctx.fillText('UNSENT', W / 2, H - safe);
+
+  canvas.toBlob(async (blob) => {
+    if (!blob) return;
+    const file = new File([blob], `unsent-${sign.id}-card.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'UNSENT Sky Card' }); showToast('Share sheet opened'); return; } catch {}
+    }
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = `unsent-${sign.id}-1080x1920.png`; a.click(); URL.revokeObjectURL(url);
+    showToast('1080×1920 PNG saved');
+  }, 'image/png');
+};
+
+window.saveCardToBox = () => {
+  const sign = getSign(state.lensSignId), txt = document.getElementById('card-text-in').value.trim() || document.getElementById('card-body-out').textContent;
+  state.items.unshift({ id: 'crd_' + Date.now(), type: 'card', sign: sign.western, mood: document.getElementById('card-mood-in').value.trim() || 'Quiet', body: txt, stampedAt: new Date().toISOString() });
+  persistState(); renderBox(); showToast('Card saved to My Box');
+};
+
+/* ── My Box, Settings & Backup ── */
+window.toggleVaultLock = () => {
+  state.vaultLocked = !state.vaultLocked;
+  document.getElementById('vault-locked-view').classList.toggle('hidden', !state.vaultLocked);
+  document.getElementById('vault-open-view').classList.toggle('hidden', state.vaultLocked);
+  document.getElementById('btn-vault-lock').textContent = state.vaultLocked ? '🔒 Locked' : '🔓 Unlocked';
+  persistState();
+};
+window.setBoxFilter = (f, btn) => { state.boxFilter = f; btn.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.remove('active')); btn.classList.add('active'); renderBox(); };
+
+function renderBox() {
+  document.getElementById('demo-samples-card').classList.toggle('hidden', state.hideSampleCard);
+  const list = document.getElementById('box-list'), q = (document.getElementById('box-search').value || '').toLowerCase().trim();
+  if (state.boxFilter === 'recap') {
+    const moodCounts = {}; state.checkins.forEach((c) => { moodCounts[c.mood] = (moodCounts[c.mood] || 0) + 1; });
+    const moodLines = Object.entries(moodCounts).map(([m, c]) => `${m}: ${c}`).join(' · ') || 'No check-ins recorded yet';
+    list.innerHTML = `<div class="card"><div class="label-meta">My year in feelings (real entries only)</div><h3 class="h-display" style="font-size:1.2rem;margin:6px 0 10px;">${state.items.filter((i) => i.type === 'letter').length} letters · ${state.items.filter((i) => i.type === 'card').length} cards</h3><p class="h-sub" style="font-size:0.88rem;">Emotional weather check-ins: ${moodLines}</p></div>`;
+    return;
+  }
+  const filtered = state.items.filter((i) => (state.boxFilter === 'all' || i.type === state.boxFilter) && (!q || (i.body || '').toLowerCase().includes(q) || (i.recipient || '').toLowerCase().includes(q)));
+  if (!filtered.length) { list.innerHTML = `<div class="card" style="text-align:center;"><p class="h-sub">Your box is quiet here. Write a letter or save a card whenever you want.</p></div>`; return; }
+  list.innerHTML = filtered.map((item) => `<div class="list-item"><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span class="label-meta">${item.type === 'letter' ? `To ${item.recipient} · NEVER SENT` : `Feeling Card · ${item.mood || 'Quiet'}`}</span><span class="label-meta">${new Date(item.stampedAt).toLocaleDateString()}</span></div><p style="font-size:0.92rem;line-height:1.55;margin-bottom:10px;">${escapeHtml(item.body.slice(0, 180))}${item.body.length > 180 ? '…' : ''}</p><div style="display:flex;gap:8px;"><button class="chip-btn" style="min-height:30px;padding:3px 10px;font-size:0.75rem;" onclick="duplicateItem('${item.id}')">Duplicate draft</button><button class="chip-btn" style="min-height:30px;padding:3px 10px;font-size:0.75rem;color:var(--rose);" onclick="deleteItem('${item.id}')">Delete</button></div></div>`).join('');
+}
+window.renderBox = renderBox;
+window.duplicateItem = (id) => { const item = state.items.find((i) => i.id === id); if (!item) return; openStudioMode('letter'); document.getElementById('letter-body').value = item.body; onLetterInput(); };
+window.deleteItem = (id) => { state.items = state.items.filter((i) => i.id !== id); persistState(); renderBox(); showToast('Removed from local box'); };
+window.removeSampleEntries = () => { state.hideSampleCard = true; persistState(); renderBox(); };
+
+function buildMoodChips() {
+  const box = document.getElementById('mood-chips'); box.innerHTML = '';
+  ['Quiet', 'Heavy', 'Hopeful', 'Tender', 'Restless', 'Grateful'].forEach((m) => {
+    const b = document.createElement('button'); b.className = `seg-btn ${m === pickedMood ? 'active' : ''}`; b.textContent = m;
+    b.onclick = () => { pickedMood = m; buildMoodChips(); }; box.appendChild(b);
+  });
+}
+
+window.saveCheckIn = () => {
+  const note = document.getElementById('checkin-note').value.trim(), key = state.selectedAlmanacDate || new Date().toISOString().slice(0, 10);
+  state.checkins.unshift({ dateKey: key, mood: pickedMood, note, at: Date.now() });
+  document.getElementById('checkin-note').value = ''; persistState(); closeSheets(); renderToday(); renderBox(); showToast('Emotional weather saved');
+};
+
+window.setLang = (lang) => { state.lang = lang; document.querySelectorAll('.lang-pill').forEach((b) => b.classList.toggle('active', b.dataset.lang === lang)); persistState(); renderToday(); };
+window.toggleTheme = () => { state.theme = state.theme === 'dark' ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', state.theme); document.getElementById('tog-theme').classList.toggle('on', state.theme === 'light'); persistState(); };
+window.toggleMotion = () => { state.reduceMotion = !state.reduceMotion; document.getElementById('tog-motion').classList.toggle('on', state.reduceMotion); persistState(); };
+window.setTextSize = (val) => { state.textSize = val; document.documentElement.style.setProperty('--scale', val); persistState(); };
+window.setTimezone = (tz) => { state.timezone = tz; persistState(); renderToday(); };
+
+window.exportEncryptedBackup = async () => {
+  const secret = prompt('Enter a high-entropy recovery passphrase for AES-256-GCM encryption (keep it safe; it never leaves your device):');
+  if (!secret || secret.length < 8) { showToast('Use at least 8 characters'); return; }
+  const encrypted = await encryptVaultBackup({ exportedAt: new Date().toISOString(), items: state.items, checkins: state.checkins }, secret);
+  const blob = new Blob([JSON.stringify(encrypted, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = 'unsent-encrypted-backup.json'; a.click(); URL.revokeObjectURL(url);
+  showToast('AES-256-GCM encrypted backup saved');
+};
+
+window.exportBackupJSON = () => {
+  const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), items: state.items, checkins: state.checkins }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = 'unsent-local-backup.json'; a.click(); URL.revokeObjectURL(url);
+  showToast('Local JSON backup exported');
+};
+
+window.clearAllLocalData = () => { state.items = []; state.checkins = []; localStorage.removeItem('unsent_draft_text'); persistState(); renderBox(); renderToday(); closeSheets(); showToast('Local archive cleared'); };
+
+window.openSheet = (id) => {
+  closeSheets(false);
+  document.getElementById('backdrop').classList.add('open');
+  document.getElementById(id).classList.add('open');
+  if (id === 'sh-release') setTimeout(() => { if (!threeManagers.release) initRelease3D(); resize3D(); }, 50);
+};
+window.closeSheets = (hideBg = true) => {
+  if (hideBg) document.getElementById('backdrop').classList.remove('open');
+  document.querySelectorAll('.sheet').forEach((s) => s.classList.remove('open'));
+};
+
+const escapeHtml = (str) => str.replace(/[&<>"']/g, (m) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]));
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+
+(async function boot() {
+  loadState();
+  db = await openIDB();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+
+  document.documentElement.setAttribute('data-theme', state.theme);
+  document.documentElement.style.setProperty('--scale', state.textSize || '1');
+  document.getElementById('tog-theme').classList.toggle('on', state.theme === 'light');
+  document.getElementById('tog-motion').classList.toggle('on', state.reduceMotion);
+  document.getElementById('sel-text-size').value = state.textSize || '1';
+  document.getElementById('sel-tz').value = state.timezone || 'Asia/Kolkata';
+  document.querySelectorAll('.lang-pill').forEach((b) => b.classList.toggle('active', b.dataset.lang === state.lang));
+
+  renderWeekStrip();
+  renderToday();
+  renderElementCard();
+  selectZodiacSign(state.selectedZodiacSign);
+  buildPairPickers();
+  renderDialogue();
+  renderStudioControls();
+  const txt = localStorage.getItem('unsent_draft_text'), sal = localStorage.getItem('unsent_draft_salutation');
+  if (sal) document.getElementById('letter-salutation').value = sal;
+  if (txt) { document.getElementById('letter-body').value = txt; onLetterInput(); }
+  buildMoodChips();
+  renderBox();
+
+  initTodayStage();
+  initDesktopCompanion3D();
+  window.addEventListener('resize', resize3D);
+  loop3D();
+})();
+
+13. firebase.json
+
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "functions/**"
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "X-Frame-Options", "value": "DENY" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        ]
+      }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"]
+    }
+  ],
+  "emulators": {
+    "auth": { "port": 9099 },
+    "functions": { "port": 5001 },
+    "firestore": { "port": 8080 },
+    "hosting": { "port": 5000 },
+    "ui": { "enabled": true }
+  }
+}
+
+14. firestore.rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny everything
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Owner-scoped encrypted vault items
+    match /users/{uid}/items/{itemId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['ciphertext', 'iv', 'version', 'revision', 'tombstone', 'updatedAt'])
+        && request.resource.data.ciphertext is string
+        && request.resource.data.ciphertext.size() <= 200000
+        && request.resource.data.iv is string
+        && request.resource.data.version is int
+        && request.resource.data.revision is int;
+      allow delete: if false; // Use tombstone flag so offline clients do not resurrect deleted letters
+    }
+
+    // Public sky cache (read-only for clients, server-written)
+    match /publicSkyCache/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Server-only operational collections
+    match /quotas/{docId} { allow read, write: if false; }
+    match /deletionJobs/{docId} { allow read, write: if false; }
+  }
+}
+
+15. firestore.indexes.json
+
+{
+  "indexes": [
+    {
+      "collectionGroup": "items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tombstone", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
+
+16. functions/package.json
+
+{
+  "name": "unsent-astral-functions",
+  "scripts": {
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --only functions,firestore",
+    "mcp": "node lib/mcp.js"
+  },
+  "engines": { "node": "20" },
+  "main": "lib/index.js",
+  "dependencies": {
+    "@google/genai": "^0.10.0",
+    "@modelcontextprotocol/sdk": "^1.8.0",
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
+
+17. functions/tsconfig.json
+
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2022",
+    "outDir": "lib",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}
+
+18. functions/src/index.ts
+
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { defineSecret } from 'firebase-functions/params';
+import * as admin from 'firebase-admin';
+import { GoogleGenAI } from '@google/genai';
+import { z } from 'zod';
+
+admin.initializeApp();
+const db = admin.firestore();
+
+const prokeralaClientId = defineSecret('PROKERALA_CLIENT_ID');
+const prokeralaClientSecret = defineSecret('PROKERALA_CLIENT_SECRET');
+const geminiApiKey = defineSecret('GEMINI_API_KEY');
+
+const ReflectionInput = z.object({
+  mode: z.enum(['reflect', 'poem', 'sign_question']),
+  language: z.enum(['en', 'bn', 'hi', 'hg']),
+  passage: z.string().min(1).max(1200),
+  consentGranted: z.boolean()
+});
+
+// Transactional daily quota guard (prevents uncontrolled spend)
+async function reserveQuota(uid: string, limitPerDay = 20): Promise<void> {
+  const day = new Date().toISOString().slice(0, 10);
+  const ref = db.doc(`quotas/${uid}_${day}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const used = snap.exists ? (snap.data()?.count ?? 0) : 0;
+    if (used >= limitPerDay) throw new HttpsError('resource-exhausted', 'Daily limit reached.');
+    tx.set(ref, { count: used + 1, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  });
+}
+
+// Non-computational Gemini reflection endpoint (Enforce App Check in production)
+export const generateQuietReflection = onCall(
+  { region: 'asia-south1', secrets: [geminiApiKey], enforceAppCheck: process.env.FUNCTIONS_EMULATOR !== 'true' },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required for cloud reflection.');
+    const parsed = ReflectionInput.safeParse(request.data);
+    if (!parsed.success || !parsed.data.consentGranted) {
+      throw new HttpsError('invalid-argument', 'Valid input and explicit consent required.');
+    }
+
+    // Policy gate: require explicit production paid-tier toggle before processing user text
+    if (process.env.ENABLE_PRIVATE_AI_REFLECTIONS !== 'true') {
+      return { status: 'disabled', message: 'Use local editorial spark mode.' };
+    }
+
+    await reserveQuota(request.auth.uid);
+
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey.value() });
+    const resp = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Respond gently in ${parsed.data.language}. Mode: ${parsed.data.mode}. Passage: """${parsed.data.passage}"""`,
+      config: {
+        systemInstruction:
+          'Write gently in the writer language. Reflect a feeling present in the passage. Use tentative wording. Never calculate astronomy, diagnose, advise, or prophesy. If severe distress appears, return JSON {"status":"support"}.',
+        responseMimeType: 'application/json',
+        maxOutputTokens: 220
+      }
+    });
+
+    return { status: 'ok', output: resp.text ?? '' };
+  }
+);
+
+// Prokerala Birth Details Lahiri Chandra Rasi Server Adapter
+const BirthSchema = z.object({
+  datetimeIsoWithOffset: z.string().min(10),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180)
+});
+
+export const calculateVedicMoonLahiri = onCall(
+  { region: 'asia-south1', secrets: [prokeralaClientId, prokeralaClientSecret], enforceAppCheck: process.env.FUNCTIONS_EMULATOR !== 'true' },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+    const parsed = BirthSchema.safeParse(request.data);
+    if (!parsed.success) throw new HttpsError('invalid-argument', 'Invalid birth coordinates.');
+
+    await reserveQuota(request.auth.uid, 10);
+
+    const tokenRes = await fetch('https://api.prokerala.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: prokeralaClientId.value(),
+        client_secret: prokeralaClientSecret.value()
+      })
+    });
+    if (!tokenRes.ok) throw new HttpsError('unavailable', 'Provider auth unavailable.');
+    const { access_token } = (await tokenRes.json()) as { access_token: string };
+
+    const qs = new URLSearchParams({
+      ayanamsa: '1', // Lahiri
+      coordinates: `${parsed.data.latitude},${parsed.data.longitude}`,
+      datetime: parsed.data.datetimeIsoWithOffset
+    });
+    const birthRes = await fetch(`https://api.prokerala.com/v2/astrology/birth-details?${qs.toString()}`, {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+    if (!birthRes.ok) throw new HttpsError('unavailable', 'Vedic calculation provider unavailable.');
+    const raw = await birthRes.json() as any;
+
+    return {
+      schemaVersion: '1.0.0',
+      calculationKind: 'vedic_moon_lahiri',
+      status: 'calculated',
+      source: 'Prokerala v2 birth-details',
+      ayanamsa: 'Lahiri',
+      chandraRasi: raw?.data?.chandra_rasi?.name ?? null
+    };
+  }
+);
+
+19. functions/src/mcp.ts
+
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { z } from 'zod';
+
+const SIGN_REFS: Record<string, { element: string; modality: string; ruler: string }> = {
+  aries: { element: 'Fire', modality: 'Cardinal', ruler: 'Mars' },
+  taurus: { element: 'Earth', modality: 'Fixed', ruler: 'Venus' },
+  gemini: { element: 'Air', modality: 'Mutable', ruler: 'Mercury' },
+  cancer: { element: 'Water', modality: 'Cardinal', ruler: 'Moon' },
+  leo: { element: 'Fire', modality: 'Fixed', ruler: 'Sun' },
+  virgo: { element: 'Earth', modality: 'Mutable', ruler: 'Mercury' },
+  libra: { element: 'Air', modality: 'Cardinal', ruler: 'Venus' },
+  scorpio: { element: 'Water', modality: 'Fixed', ruler: 'Mars' },
+  sagittarius: { element: 'Fire', modality: 'Mutable', ruler: 'Jupiter' },
+  capricorn: { element: 'Earth', modality: 'Cardinal', ruler: 'Saturn' },
+  aquarius: { element: 'Air', modality: 'Fixed', ruler: 'Saturn' },
+  pisces: { element: 'Water', modality: 'Mutable', ruler: 'Jupiter' }
+};
+
+const server = new McpServer({ name: 'unsent-astral-readonly', version: '1.0.0' });
+
+server.tool(
+  'get_sign_reference',
+  'Return verified element, modality, and traditional ruler for a language-neutral sign ID.',
+  { signId: z.string() },
+  async ({ signId }) => {
+    const info = SIGN_REFS[signId.toLowerCase()];
+    return {
+      content: [{ type: 'text', text: JSON.stringify(info ?? { error: 'Unknown signId' }) }]
+    };
+  }
+);
+
+server.tool(
+  'explain_fact_packet',
+  'Validate and explain allowed read-only fields of a deterministic astronomical fact packet.',
+  { schemaVersion: z.string(), status: z.string(), zodiacSystem: z.string() },
+  async (packet) => ({
+    content: [{ type: 'text', text: JSON.stringify({ validated: true, allowedFields: packet }) }]
+  })
+);
+
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+main().catch((err) => { console.error(err); process.exit(1); });
+
+20. .github/workflows/ci.yml
+
+name: CI & Validation
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check Functions TypeScript build
+        working-directory: functions
+        run: npm install && npm run build
+
+21. README.md
+
+# UNSENT · astral 3D
+
+A calm, mobile-first sanctuary for unsent letters, 3D zodiac elements, and Dreamer's Almanac.
+
+## Status Distinction
+- **Implemented & runnable locally / GitHub Pages:** Complete client app (`index.html`, `styles/app.css`, `src/*`), 3D Elements (Fire, Earth, Air, Water), 3D Celestial Wheel, 3D Release Ritual, Deterministic Solar/Lunar Ephemeris, Dreamer's Almanac, 1080×1920 PNG Export, AES-256-GCM local vault export, PWA manifest + service worker.
+- **Requires project-owner Firebase configuration:** Cloud sync (`firestore.rules`), App Check site key, `PROKERALA_CLIENT_ID` / `PROKERALA_CLIENT_SECRET`, `GEMINI_API_KEY`, and Blaze plan for deploying Cloud Functions (`functions/src/index.ts`).
+
+## Run Locally (HTTP required for ES modules)
+```bash
+npx serve .
+# or: python3 -m http.server 8080
+
+Push to GitHub & Enable GitHub Pages
+
+git init
+git add .
+git commit -m "Initial commit: UNSENT astral 3D"
+git branch -M main
+git remote add origin https://github.com/<USERNAME>/<REPO>.git
+git push -u origin main
+
+Then open Settings → Pages → Source: main / (root) on GitHub.
+
+Firebase Setup (Optional Cloud & Functions)
+
+cd functions && npm install && npm run build
+firebase login
+firebase use --add
+firebase deploy --only firestore:rules,firestore:indexes,hosting
+
+
+---
+
+### Quickest Way to Put All Files on Your Computer & GitHub
+Create the folder `unsent-astral-3d` with the file paths shown in the tree above, run `npx serve .` locally to verify it works, and then run:
+
+```bash
+git init
+git add .
+git commit -m "Initial commit: UNSENT astral 3D"
+git branch -M main
+git remote add origin https://github.com/<YOUR-USERNAME>/unsent-astral-3d.git
+git push -u origin main

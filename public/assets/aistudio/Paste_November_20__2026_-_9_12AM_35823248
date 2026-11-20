@@ -1,0 +1,427 @@
+Build UNSENT in Google AI Studio
+
+Work in Build mode, Web, in the active UNSENT project. Regenerate the real app. You own the product design, writing experience, frontend, Firebase backend, privacy controls, integrations and release tests. Produce working files, a usable preview and evidence from the checks you ran. Keep the preview working between changes. If a credential or device is unavailable, finish everything you can exercise and identify the exact remaining check.
+
+1. Start with one letter
+
+UNSENT is a private place to write something you might never send. Someone in West Bengal opens it on their phone, taps Write a letter, and types “I miss our late-night talks.” They select the sentence, tap Writing language → English to Banglish, and preview “Amader late-night kothagulo khub miss kori.” They can edit that version, keep their English, or save both. They seal the letter, reopen it tomorrow and make a 9:16 card with only the words they selected. Nothing in that journey sends a message to the person they wrote about.
+
+Build this complete journey first. Make it feel natural with a thumb, a keyboard and a screen reader. Guest writing, sealing, local saving and image export work offline after the first successful load. Always show where an optional translation will run before private words leave the device. A person who skips translation, sign-in or astrology can still finish the letter.
+
+Work through runnable milestones in order. First deliver the local letter, language sheet and card export. Next connect the verified translation path, then Zodiac, the sculptures and Almanac. Finish encrypted sync, restore and erasure, the remaining providers, and release checks. At each milestone run its acceptance rows and carry unfinished work forward. If a provider is unavailable, continue independent milestones and leave its exact setup and verification command in the handoff.
+
+Use the existing work. Inspect the active source, routes, handlers, data formats, tests and build output. Use the private reference repository when it is available to this workspace. It contains the product and zodiac research, two ASTRAL 3D implementation transcripts, a partial Firebase draft and the original PDF. Favor the active project's working code and preserve existing archives. When only reference transcripts exist, reconstruct the missing app in the active project and connect it to the same production modules you test. Keep a brief record of the inputs you actually opened. UNSENT source and references
+
+Apply the design references in this order. The supplied Stoic and Bond screenshots set the direction for space, typography, paper objects and navigation. The newer UNSENT Today screenshot supplies the centered header, dates and black writing surface. The ASTRAL transcripts supply the four sculptures and interaction ideas. The old purple, dotted UNSENT screenshots identify a rejected design. Create original artwork, brand elements and copy. Keep the shell light by default and let the paper and zodiac objects carry the color. Treat “Apple-level” as a standard for interaction quality on iPhone, Android and desktop. The deliverable is an installable web app.
+
+Use the 37 MB reference deliberately. In references/LLM.pdf (99 pages), use p. 42 for task, context, example and output shape, pp. 75–80 for examples, staged tasks and grounding, and p. 97 for evaluation. Apply these to Banglish, creative writing and fact handling with synthetic test sentences. Keep the PDF, transcripts, research, private screenshots, credentials and test data outside public assets, service-worker caches, Functions bundles and runtime model prompts. A dedicated web build directory is essential here.
+
+2. Make the writing language a feature
+
+Offer English, বাংলা, Banglish, हिन्दी and Hinglish. In the language picker identify Banglish as “Bengali in English letters” and Hinglish as “Hindi in English letters.” Searching “Binglish,” “Benglish,” “Bangla” or “Roman Bangla” finds Banglish. Support an English interface with a Banglish letter, a Bengali interface with an English card, and any other combination. Store interface language, writing preference and each saved version's language/script separately. Switching the interface never rewrites an entry.
+
+Writer's choice
+
+What the feature does
+
+Synthetic example
+
+Write in Banglish
+
+Accept free typing in Roman Bengali with any English words the writer wants to keep. Autosave the exact characters locally.
+
+“Aaj office theke fire ektu chupchap boshte ichhe korchhe.”
+
+English → Banglish
+
+Translate the meaning into conversational West Bengal Bengali in Latin letters. Use English words where they sound natural.
+
+“I wanted to call you, but I didn’t know what to say.” → “Tomake call korte cheyechilam, kintu ki bolbo bujhte parini.”
+
+Banglish → বাংলা
+
+Offer phonetic script conversion on device, with selectable alternatives for ambiguous spellings. Preserve deliberately English words.
+
+“ami bhalo achhi” → “আমি ভালো আছি”
+
+বাংলা → Banglish
+
+Give an editable Roman Bengali rendering. Keep the meaning, paragraphing and chosen form of address.
+
+“আজ একটু সময় চাই।” → “Aaj ektu shomoy chai.”
+
+In Writer and Feeling Card, put Writing language in the editor toolbar. Work on the current selection, or let the writer choose the whole draft explicitly. On a phone show Original and Banglish preview stacked in a sheet, with Use this version, Keep both and Cancel. Keep the preview editable. Restore the selection on cancel. Undo restores the exact original, including line breaks and emoji. If text changed while a result was in flight, offer the result as a separate version. Never replace newer typing. Keep both versions in the encrypted item when requested. In export, show which version will appear.
+
+Give the writer a simple choice between Everyday (tumi) and Respectful (apni) when address matters. For “Let me know when you get home,” valid examples are “Bari pouchhe amake janio” and “Bari pouchhe amake janaben.” Keep an existing “tui” or kinship term when the author used it. Avoid guessing intimacy from age or recipient category. Preserve names, negations, tense, emoji, numbers, quotations, paragraph breaks and Bangla–English mixing. Let the writer mark names or English terms to keep. Multiple Roman spellings can be natural. Assess meaning and voice without forcing an exact example string.
+
+Implement real offline input and script conversion with a maintained or properly tested local phonetic engine and redistributable language data. Cache its small assets with the offline app, load the engine on demand, test common West Bengal spellings, mixed text and IME composition, and offer candidates without interrupting the caret. For full English-to-Banglish meaning conversion, implement a real adapter for arbitrary sentences. Prefer a verified on-device engine when available. The supported online path is the protected convertWritingV1 callable in section 7. Show On this device or Send selected text to Gemini according to the actual path. A local phrasebook may offer writing starters. Only a translation engine may report a translation of new text. With no eligible engine or connection, keep the original open, explain the available option, and never queue a future upload of the passage.
+
+3. Specify the actual screens and words
+
+Today. At 390 × 844 use a cool paper canvas, 20 px horizontal margins, a compact centered “Today,” Settings on the right and seven real weekday/date buttons. The selected date has a thin outline and an accessible full date. Selecting a date opens that day's Almanac or entries. Place one ink-black writing surface below. Put the editable invitation “What would you like to say?” and an ivory “Write a letter” button on the left. Place one small folded envelope on the right, about 96–112 px at this width. With a chosen sign lens, its element sculpture can occupy that spot. Yield the space to text on focus, small widths or larger type. Typing here carries the text and caret into Writer. Under it, one white card asks “What do you wish you’d said?” with “Use this prompt.” Carry the prompt into the editor as context outside the author's words. Keep the primary action visible at 360 × 740.
+
+Navigation. Use four labeled destinations, Today, Zodiac, Almanac, My Box. Place a central Create action between Zodiac and Almanac. It opens Write a letter or Make a feeling card. Preserve tab scroll, selected date, draft and Back behavior. An optional introduction in Settings may say “A place for unsent letters.” Routine launches go straight to Today.
+
+Writer and seal. Offer Ex, Mother, Father, Friend, Someone I lost, My past self, My future self, Myself right now, and a custom recipient. Provide at least five distinct starting lines for each of the nine categories, with editable salutations. Use a spacious text area, unobtrusive word count, accessible save status and a reachable Seal letter action. Preserve long text, selection and composition during autosave, keyboard resize and navigation. Blank letters stay editable. Offer typing everywhere. Dictation starts on explicit request, names the processing destination if audio could leave the device, and has a working denial/cancel path. Once sealed, show the date, the one-time NEVER SENT stamp and Keep in My Box, Share…, Let it go…. The writer can duplicate a sealed letter into a new draft.
+
+Feeling Card and Sky Card. Lead with the real 9:16 preview. Someone starting a fresh card can type a feeling, choose an optional mood and use their own line or an editable local template. A poem is a separate, optional action. Put Paper · Type · Motif · Details below the preview, with one tool sheet open at a time. Ship Old Parchment, Midnight Blue, Rose Petal, Rain on Glass, Torn Notebook and Moonlit Ink as distinct paper samples. Show actual text on every sample. A Sky Card can include a manually chosen sign and a dated Moon phase. Recipient, birth details, account identity and unselected writing stay out of default exports. Allow an optional recipient on letter cards and an optional small Unsent mark. Render the approved composition locally to an actual 1080 × 1920 PNG with the selected text version, typeface and frozen motif pose. Wait for fonts and art. For long text offer passage selection or numbered pages, with an inspectable safe area. Share only after preview and user activation. Support file-sharing capability checks and download fallback. On cancel return to the same card. For a browser download say “Download started.” File sharing capability checks
+
+My Box, Almanac and Settings. An unlocked My Box may show three paper covers with soft contact shadows, then a plain list. Include Letters, Cards, Favorites, local search, duplicates and export. An empty box shows “Your box is empty” and “Write a letter.” A locked box shows anonymous covers with no titles or excerpts, including during transitions. The monthly Almanac links local dates, Moon events and explicitly linked private entries. An optional “How are you feeling?” check-in has five named choices and saves only on confirmation. Monthly and annual recaps count the user's actual entries and self-reported moods. Keep demos separate. Settings groups appearance and languages, privacy and lock, backup and recovery, export and deletion. Show local save, pending sync, conflict, restore and provider failure where the writer can act on them.
+
+Design tokens and access. Paper canvas #F3F3F5, white surfaces, ink #19191B, secondary #59595F, divider #DADADD, ivory #EEEAE2 on the dark hero. Offer Ink mode with canvas #151617, surface #1D1F20, text #F3F1EC. Use a clay-red stamp on finished letters. Use the platform system sans with licensed local Bengali and Devanagari fallbacks. Body and input 16–18 px, navigation rows about 52 px, targets at least 44 × 44 CSS px, hero radius 24–28 px. Target WCAG 2.2 AA. Check rendered contrast and visible focus in both themes. On desktop use a left rail, a 640–760 px writing column and side-by-side preview when useful. Use real safe-area insets, dynamic viewport sizing, one main scroll area and browser Back. Support 200% text, pinch zoom, keyboard, screen readers and reduced motion. Avoid fake phone chrome, borrowed logos, purple patterns, emoji zodiac tiles, decorative slogans and empty dashboard cards. WCAG 2.2
+
+4. Give each motion a job
+
+Moment
+
+Direction and behavior
+
+Cold launch, “Unfold”
+
+On the first eligible launch in a session, an original envelope silhouette resolves over 0–160 ms. Its flap lifts at 160–420 ms. The sheet opens into Today by 700 ms. Mount the real interactive screen immediately. The decorative overlay ignores touch, is hidden from assistive technology and disappears on first input. Skip on warm resume, deep link, restored draft and reduced motion.
+
+Press and navigate
+
+Compress only the visible button face to 0.98 in 80 ms. Release in 120–160 ms. Keep its hit area steady. A sheet tracks a deliberate handle drag and settles in 180–240 ms. Keep scrolling independent. Support Close, Escape and Back. Restore focus to the opener.
+
+Seal and release
+
+Apply one 180–240 ms ink impression after a successful seal. Confirm the scope before releasing. Ash, embers or small folded birds finish in 400–600 ms. Announce local removal and cloud acknowledgement separately. Double taps have one effect.
+
+Touch feedback
+
+Offer one optional selection or success haptic only where a supported API or existing native bridge permits it and the user enables it. Always provide equivalent visual and spoken feedback. Keep scrolling, typing and autosave silent. Reduced motion uses a still or immediate change.
+
+Use the ASTRAL transcripts for these four original miniature objects. Give each a readable silhouette and a matching static poster. Use one light direction and a quiet shadow so the objects belong on the same desk.
+
+Sculpture
+
+Art and motion
+
+Signs
+
+Fire
+
+Three nested flame shapes, pale-yellow core, amber body, vermilion outer flame, slender brass base ring, a few rising embers.
+
+Aries, Leo, Sagittarius
+
+Earth
+
+Three faceted jade peaks, ivory moon behind them, a fine brass ground ring and slowly orbiting crystal fragments.
+
+Taurus, Virgo, Capricorn
+
+Air
+
+Three pale-blue helical ribbons with a few cloud forms counter-rotating slowly and sparse drifting dust.
+
+Gemini, Libra, Aquarius
+
+Water
+
+A shallow sapphire pool with moving ripples inside a fine rim, a hovering crescent and sparse droplets.
+
+Cancer, Scorpio, Pisces
+
+Use one shared lazy-loaded renderer with bounded pixel density. Sign detail permits horizontal drag to rotate, with explicit equivalent controls. Vertical gestures scroll normally. The optional zodiac wheel has a central sun, three brass rings and twelve selectable nodes synchronized with the accessible grid. Two-sign Alchemy shows two selected sculptures in one scene. In Card capture the exact selected pose. Pause animation while typing, offscreen or backgrounded. Support static artwork from first paint, WebGL context loss, reduced motion and low-power devices. The bundle needed to start writing must exclude the 3D engine.
+
+5. Make all twelve signs useful offline
+
+Open Zodiac to a neutral, searchable grid. Use original monochrome glyphs, Western and Rashi names, two or three columns as space permits, and a visible selected state. Opening another sign leaves the saved lens alone until the user chooses Use this lens. Give each sign a distinct print, a writing question, a two-minute action and a route into a letter or card. Use these launch examples.
+
+Sign and Rashi
+
+Traditional element, modality and Vedic ruler
+
+Writing question
+
+Two-minute action
+
+Aries · Mesha
+
+Fire · cardinal · Mars
+
+What could you start in a smaller way?
+
+Write the opening of something you have put off.
+
+Taurus · Vrishabha
+
+Earth · fixed · Venus
+
+Which ordinary comfort would you miss?
+
+Describe it through three senses.
+
+Gemini · Mithuna
+
+Air · mutable · Mercury
+
+Which two things feel true at once?
+
+Give each a line on the same page.
+
+Cancer · Karka
+
+Water · cardinal · Moon
+
+What makes a place feel like home?
+
+Thank someone for one specific memory.
+
+Leo · Simha
+
+Fire · fixed · Sun
+
+When were you brave without an audience?
+
+Give that moment a title.
+
+Virgo · Kanya
+
+Earth · mutable · Mercury
+
+Which detail held your day together?
+
+Write down three things you noticed.
+
+Libra · Tula
+
+Air · cardinal · Venus
+
+Where would a little more give and take help?
+
+Draft a kind request in one sentence.
+
+Scorpio · Vrishchika
+
+Water · fixed · Mars
+
+What feels safe enough to put into words?
+
+Write one private line and choose its fate.
+
+Sagittarius · Dhanu
+
+Fire · mutable · Jupiter
+
+What are you curious enough to try once?
+
+Name one place and a question to take there.
+
+Capricorn · Makara
+
+Earth · cardinal · Saturn
+
+Which quiet effort deserves credit?
+
+Leave a two-line note for your future self.
+
+Aquarius · Kumbha
+
+Air · fixed · Saturn
+
+Which everyday rule would you change?
+
+Describe your alternative to a friend.
+
+Pisces · Meena
+
+Water · mutable · Jupiter
+
+If today had a sound, what would it be?
+
+Write two lines beginning “Today sounds like…”
+
+Ship at least seven unique editorial questions per sign across friendship, creativity, rest, boundaries, gratitude, curiosity and starting again. Key content by stable sign, prompt and date IDs. A language change displays the same prompt. Another spark cycles all seven before repeating. Two-sign Alchemy lets people choose any pair, including two of the same sign, plus friendship, family or collaboration. Give each person a question and one shared activity. For Gemini and Pisces, try describing the same memory once as a headline and once as a color. Keep signs optional on exports. Leave relationship rankings, compatibility scores and predictions out.
+
+Keep four concepts distinct. A chosen lens needs no personal data. A Western birth Sun uses a tropical calculation. A Vedic birth Moon uses a sidereal Lahiri calculation. The Moon phase on a date is a public sky fact. Display each in its own labeled place. Never derive one from another or let an AI fill a missing result.
+
+For the Sun and lunar events, use a pinned, licensed deterministic ephemeris. Check its time scale, reference frame and angular convention. Normalize apparent geocentric tropical longitude into twelve half-open 30° sectors. Compute upcoming new/full Moon instants in UTC and convert to the viewer's IANA timezone. Label the daily phase's reference instant. Cache public sky data by version, date rule and timezone. The Almanac's writing invitation is editorial and its emotional weather comes from a voluntary check-in.
+
+For a Lahiri Moon calculation, use Prokerala Birth Details through a server adapter. Check its current OpenAPI, OAuth client-credentials contract, Lahiri setting, returned Chandra Rasi and data-use terms. Send only the required coordinates and time, with informed permission. Offer tested place entries for Chakdaha, Kalyani and Kolkata and a manual city/coordinates/timezone option. Disambiguate similar names and use historical timezone rules. A skipped time opens up a whole local-day interval. An approximate time creates an interval too. Use documented ingress checks to prove a sign stable throughout. Show verified candidates when a transition is known, or Undetermined when evidence is insufficient. For an ambiguous clock time offer its two offsets, and ask for a valid time in a DST gap. Keep the tropical result usable if the Moon provider fails.
+
+Return a typed fact record with calculation kind, status, engine/provider and version when available, zodiac system, ayanamsa where applicable, instant or interval, sign ID and supported precision. Render facts from code and explain them in How this was found. Store birth inputs transiently unless the person explicitly saves an encrypted result. Keep private birth details out of URLs visible to the user, shared caches, provider error logs and analytics. Document a supported date range and independently sourced fixtures with tolerances. Astronomy Engine · Prokerala API
+
+6. Give each kind of data one home
+
+Use React, TypeScript and Vite for the installable frontend, the modular Firebase Web SDK, Firebase Hosting serving an allowlisted dist/, Cloud Firestore, optional Firebase Authentication with Google sign-in, second-generation TypeScript HTTPS callable Functions, App Check, Secret Manager and the Emulator Suite. Reuse working equivalents in the active project. Pin compatible dependencies, a supported Node runtime and lockfiles. Use the same service modules in AI Studio preview, emulators and deployment. Put emulators on explicit local settings. Use separate development, staging and production project IDs. Prefer asia-south1 for supported Functions near the intended audience, set that region in the client and document the existing Firestore location before provisioning anything.
+
+Data or action
+
+Destination and rule
+
+Local by default
+
+Encrypted IndexedDB holds writing, language variants, cards, check-ins, favorites, private settings and a bounded offline queue. Search indexes exist only while unlocked. PNGs are rendered locally.
+
+Backup by choice
+
+Google sign-in, explicit item selection and verified recovery setup precede upload. The server holds encrypted items, wrapped key material and the minimum documented sync metadata. Guests can stay local.
+
+Online language or reflection
+
+Send exactly the selected passage, requested operation, language/style and necessary control fields after a just-in-time preview. Each purpose has separate consent. Cloud backup never authorizes AI processing.
+
+Birth calculation
+
+Manual lens and public sign library are local. An external birth calculation receives only the approved fields. Changing UI language reads the existing neutral result.
+
+Operations and release
+
+Use aggregate counts, latency buckets, scrubbed error codes and release version. Block raw writing, versions, audio, names, birth inputs, recovery material, session replay and per-person mood events from telemetry.
+
+Guest vault and lock. Generate a random per-vault data-encryption key with Web Crypto. Use AES-256-GCM with a fresh 96-bit IV for each encryption under a key. Bind a canonical vault/owner context, item ID, schema and intended revision as authenticated associated data. Use authenticated, versioned key wrapping and vetted primitives. A guest can begin without creating an account. Specify how a device-bound, non-extractable local wrapping key survives a restart. An unlocked browser profile can access that guest vault. If offering an explicit vault lock, implement a genuine protected unlock path, such as a strong passphrase-derived wrapping key with a reviewed, versioned KDF and random salt. Remove any unattended unlock path for that vault. Explain local data loss if browser storage is cleared. Avoid overstating protection on an unlocked or compromised device. Web Crypto AES-GCM parameters
+
+Backup and restore. Wrap the vault key separately with a high-entropy user-controlled recovery secret. Have the writer verify it before first backup. Scope recovery metadata to the authenticated owner. Never put raw keys or recovery codes in a URL, log, server record or localStorage. A fresh browser needs the correct account and recovery material. Wrong keys and tampered ciphertext fail safely. Provide a portable encrypted backup and a tested import preview. Never overwrite the only decryptable copy. Keep a deliberately separate flow for readable exports. Document what happens if every device and the recovery secret are lost.
+
+Upgrade existing writing. Inspect backend-draft/ and the ASTRAL transcripts for earlier formats. Migrate astral_quiet_journal_v1, unsent_astral_state_v1, unsent_draft_text and unsent_draft_salutation on device. Journal migration progress, encrypt, commit, reopen and compare before deleting each old value. Handle interruptions, quota errors and malformed entries with an explicit recovery route. Preserve v1 users/{uid}/letters and device-only keys. Use the original device for re-encryption if it alone can unlock a legacy item. Keep a bounded legacy compatibility window and prevent writes after migration or release. Ask which guest items to attach when linking an account, and rebind their cryptographic context locally. Never merge two accounts automatically.
+
+7. Wire real frontend actions to the backend
+
+Use owner-authorized direct Firestore reads for bounded, paginated encrypted envelopes at users/{uid}/items/{itemId}. Route new item mutations through callable Functions. Deny direct writes on those collections. Require verified identity, owner/path binding, account state, attestation where applicable, size/type limits and operation-specific validation inside privileged handlers. Derive the UID from verified auth. Put quotas, request receipts and erasure jobs in server-only collections. Unused Storage paths deny access. Keep one implementation per operation.
+
+Contract
+
+Required behavior
+
+syncItemV1
+
+Accept an opaque item ID, operation ID, expected revision, sync epoch and bounded versioned ciphertext. In one transaction check the receipt and account, compare revision/epoch, write once and return a receipt with the committed revision. Same ID + same request returns the result. Same ID + different request fails. Show Backed up only on acknowledgement.
+
+releaseItemV1
+
+Atomically remove active ciphertext and record a deletion marker and revision. An offline release removes local content when confirmed and persists only the minimal owner-scoped work needed to finish cloud deletion. A duplicate request is safe.
+
+convertWritingV1
+
+Implement full English-to-Banglish meaning conversion using the shared private-text gateway. Validate source, target, register, protected spans expressed as offsets within the submitted selection, request ID, length and consent. Return an editable suggestion with language/script, register and status. Write suggested text only to the local draft on user action.
+
+generateCreativeV1
+
+Support a brief quiet reflection, a four-line editable poem and one sign-inspired writing question. Use a bounded selected passage or an approved public theme. Keep legacy reflect and generateQuietReflection as thin adapters with the same safeguards.
+
+getAlmanacV1 and calculateBirthSignsV1
+
+Share deterministic services with local mode. Make public astronomy independent of a private provider call. Require consent and a quota for a paid calculation. Adapt calculateVedicMoonLahiri to the same validated Moon service.
+
+requestErasureV1
+
+Require recent reauthentication and a request ID. Fence reads/writes, enqueue a durable retryable worker, page through items, keys, legacy data and operational data per policy, then remove the Auth identity. Adapt legacy eraseAccount. Preserve a minimal, privacy-safe completion receipt for the documented window.
+
+Conflict is a user-visible state. If two devices edit the same revision, preserve both versions and offer a choice after unlock. Namespace pending work, listeners and UI state by vault and identity. On sign-out or account change cancel in-flight work, clear plaintext and stale previews, and stop that account's queue. Ignore late responses from an earlier session. For expiring deletion markers, implement an epoch or equivalent high-water mark. Force stale devices to reconcile before accepting writes, including after markers expire. Never silently re-upload a local orphan during reconciliation. A device that has been offline cannot be remotely wiped until it reconnects. Explain active cloud deletion, queued device cleanup, backup retention and exported copies separately.
+
+Secure the service boundary. Default-deny Firestore rules and exercise them in the emulator. The Admin SDK bypasses those rules, so test the same ownership, closed-account, path, schema and transaction checks through the callable entry points. Apply App Check enforcement for supported production services, verify it on staging and keep debug tokens out of builds. Assign least-privilege service identities. Bind secrets only to the functions that need them. Keep Firebase public web configuration separate from privileged Gemini and Prokerala credentials. Use HTTPS, narrow trusted origins, a CSP tested with the actual auth flow, safe text rendering and fixed outbound provider hosts. Suppress request-body and credential logging, including in failure handlers. Service workers may cache versioned public assets only. Use no-store for private HTTP responses under your control. Firebase rules testing · Callable App Check · Firebase Hosting configuration
+
+8. Use AI where it earns the writer's trust
+
+Keep one server-side provider gateway for creative and language operations, with separate mode schemas, versioned prompts, token ceilings and cost switches. For private operations show the exact selection and destination before dispatch. Exclude other versions, recipient metadata, adjacent text, archive history, keys and birth facts. If the selection itself contains a name, the consent preview must show it. Explain applicable processing and retention in plain language. Treat submitted words as quoted data. Give the language and reflection model no tools, vault access or ability to take actions. Render its validated output as text.
+
+Model instructions for English → Banglish. “Translate the selected passage into natural, present-day West Bengal Bengali in Latin letters. Keep English where it sounds natural. Preserve who did what, negatives, tense, uncertainty, names, protected words, emoji and paragraphs. Follow the chosen form of address and the intensity of the original. Return only the requested structured suggestion. Do not continue the letter, give advice, add affection or invent a relationship.” For “I’m not angry. I just needed time,” a suitable everyday preview is “Ami rege nei. Amar shudhu ektu shomoy dorkar chhilo.” Test new sentences beyond every example printed here.
+
+Creative instructions. A quiet reflection returns two or three sentences about a feeling actually expressed. A poem returns four editable lines. A sign question returns one open question grounded in a public sign theme. Keep an undetermined birth result undetermined. Ordinary sadness remains writable. For credible serious distress, keep the user's own words intact and surface a voluntary human-support option from a maintained, region-verified directory. Preserve save, exit and deletion. Never send writing just to classify it or contact others automatically. Confirm a language conversion faithfully preserves meaning even when creative embellishment would be inappropriate.
+
+Eligibility, limits and failure. Use synthetic passages when developing against unpaid Gemini services. Enable processing of real private passages only when the owner has verified appropriate service terms, audience eligibility, region and billing configuration for the deployed service. Enforce this policy server-side. An age checkbox alone does not establish eligibility for a service likely to be used by minors. A client flag or user consent alone cannot override provider restrictions. Use explicit authenticated access for paid routes. An explicitly requested online feature may use a supported anonymous session under the same policy and quotas. Linking it later must preserve account isolation. Keep local input, local script conversion and writing available independently. Gemini API terms · AI Studio Build
+
+Reserve per-user and project-wide quotas atomically, keyed by operation ID. Bound sizes, concurrency, request duration and output tokens. Cache provider access tokens until shortly before expiry. Retry safe operations with backoff and provider limits. If a paid request times out after dispatch, surface Result unavailable with the original intact. Retry a charged operation only when safe or on a fresh informed request. Use short-lived content-free receipts to prevent duplicate spending. Keep plaintext provider results transient. Return distinct localized states for offline, invalid input, missing consent, ineligible service, expired session, quota, timeout, unsupported output and conflict. Never present a canned translation or horoscope as a live result.
+
+Read-only MCP. Implement a local stdio adapter using the official Model Context Protocol SDK, backed by the same validated public services. Restrict tools to get_moon_phase, get_sign_reference and explain_fact_packet. Allowlist argument schemas and fact fields. Keep writing, birth profiles, recovery keys, arbitrary URL retrieval, writes and admin functions outside its capabilities. Test initialize, list tools and call one with synthetic data. Ordinary usage works without an MCP connection. MCP specification
+
+9. Define the words people see when something happens
+
+Actual state
+
+English copy or behavior
+
+Local commit completed
+
+“Saved on this device.”
+
+Offline with backup enabled
+
+“Saved on this device. Backup will resume when you’re online.”
+
+Local commit failed
+
+“This draft couldn’t be saved.” Keep text and offer Try again and Copy text.
+
+Private conversion would use the network
+
+“Send this passage to Gemini to convert it to Banglish?” Show the exact passage, Cancel and Send passage.
+
+A conversion returns after more typing
+
+“You’ve edited this passage.” Offer View suggestion and Keep my edits.
+
+A cloud copy is still queued for removal
+
+“Removed from this device. Backup removal pending.” Offer status and retry when appropriate.
+
+Two devices changed a letter
+
+“There are two versions of this letter.” Show both after unlock.
+
+Localize navigation, permissions, errors, dates and export copy across all five language options. “Write a letter” can be চিঠি লিখুন, Chithi likhun, पत्र लिखें or Letter likhein in the corresponding mode. Get a proficient West Bengal Bengali reader to review Banglish meaning, respect level and natural mixing before labeling language quality reviewed. Mark a pending human review honestly. Store the original user's wording byte-for-byte through undo and lossless exports, apart from any explicit edit. Keep romanization and language selection out of personal telemetry.
+
+10. Operate and verify the build
+
+Rollout and cost. Use Firebase Remote Config for gradual UI exposure. Use server-owned switches for AI, personal-data transmission, paid calculations and spend caps. Collect only privacy-reviewed web performance data and redacted operational metrics. Watch sync failures, provider latency, quota exhaustion, errors and erasure backlog. Feed AI-assisted debugging only synthetic repros or scrubbed aggregates. Define a working rollback, including whether the previous release can read a new envelope. Keep irreversible local migrations out of an untested rollout. Estimate monthly INR costs at 100, 1,000 and 10,000 active users using explicit backup and translation uptake, read/write volumes, model tokens, vendor credits and current rates. Budget alerts and application-enforced caps serve separate purposes. Use emulators for a no-billing development path. Real Functions deployment requires a Blaze project. Leave real billing activation, public publishing and production migrations to an authorized owner. Firebase Functions · Remote Config · Web performance monitoring
+
+Prove completion through the app. Use two synthetic accounts, two clean browser profiles and unique synthetic sentences. Exercise real controls. For each row record the actual observation, environment and artifact. Fix failures that you can reproduce and rerun their checks. Use fixtures to verify a contract and a separate staging check to establish that a provider is live.
+
+Test
+
+What must be observed
+
+First minute and local privacy
+
+From a fresh profile, type from Today in two taps or fewer. After first load go offline, seal, close, reopen and export. Compare the exact text. With cloud and AI off, a network trace contains zero instances of the unique test passage.
+
+Language and export journey
+
+Test all five interface languages independently of writing language. Translate an unseen English paragraph to Banglish, edit it, cancel once, use it, undo, and keep both. Restore on a second device and export only the chosen version. Preview and decoded PNG must contain that version alone.
+
+Banglish quality and boundaries
+
+Reserve 24 unseen synthetic passages, including ordinary grief, negation, honorifics, names, currency, mixed English, multiple paragraphs and emoji. Review meaning, address and naturalness with proficient readers who can accept alternate spellings. A reversed negation, changed name/number or invented relationship fails the case. In offline mode exercise real Roman–Bengali script conversion. Declined consent, typing before a response and switching accounts each preserve the source.
+
+Selection privacy
+
+Use three unique synthetic strings in one letter. Authorize conversion of the middle line. Inspect the function payload and provider stub. Only that line and necessary controls may cross the boundary. No auto-send on typing, cancel, later reconnection or an account switch.
+
+Art and touch
+
+Inspect Today, Writer with keyboard, all four sculptures, wheel/grid, two-sign scene, card preview and My Box. Interrupt the cold start. Verify warm resume skips it. With reduced motion or blocked WebGL, every action works. Confirm double-tapping Seal creates one item.
+
+Accessibility and layout
+
+Capture 360 × 740, 390 × 844 and 1440 × 900 in Paper and Ink. Inspect 200% text, screen-reader labels, keyboard focus, dismissal, safe areas and the last line above the keyboard. Separate real iOS Safari and Android device observations from browser emulation.
+
+Actual image export
+
+Decode the PNG and verify 1080 × 1920, frozen artwork, line breaks, safe margins and no implicit personal fields. Inspect Bengali conjuncts, Hindi marks, Roman Bangla, emoji and multipage output. Cancel the share sheet and return to the preview.
+
+Zodiac and astronomy
+
+Twelve signs, at least 84 unique prompts and all twelve two-minute actions work offline. Test sector boundaries including 0°/360°, a documented differing Sun and Moon, an ingress day, Kolkata offset, DST overlap/gap, unknown time, lunar events crossing local dates, and provider outage. Assert source and uncertainty in every result.
+
+Authorization and recovery
+
+Owner-only reads work. Wrong-account and unauthenticated reads, direct client writes, tampered envelopes, incorrect keys and unauthorized callable mutations fail. Verify production-like App Check separately on staging. Restore a valid encrypted backup in a fresh profile.
+
+Migration, sync and erasure
+
+Upgrade a real-shape synthetic v1 letter and legacy draft. Simulate interruption and exhausted storage. Race two edits and retry the same operation. Release offline, restart, reconnect an old device after marker expiry, and show no resurrection. Interrupt an account-deletion worker and verify it finishes independently of sign-in.
+
+Provider and spend controls
+
+With synthetic text verify the protected translation, creative and calculation adapters, missing secrets, invalid output, 429, post-dispatch timeout and server kill switch. Duplicate operation IDs consume at most one application reservation. Local writing still works throughout. Verify the MCP handshake and one tool call.
+
+Release packaging and speed
+
+Run type-check, lint, unit, Rules Emulator, Functions integration and browser tests plus the production build. Inspect the public manifest, precache, source maps and server deployment archive for private files or secrets. Measure writing startup with 3D disabled and on a throttled mobile profile. Target p75 LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1. Label lab results separately from measured field data. Web Vitals
+
+Deliverables inside the generated project. Supply the runnable preview and source, locked dependencies, environment template with names and public/secret distinctions, rules, indexes, headers, emulator configuration, test fixtures, CI checks and a short setup/rollback guide. Include exact run/test/build/deploy commands for the actual tree. List required owner settings for authorized domains, App Check, region, Secret Manager, providers and billing. Include a data-flow map and a concise table linking each primary button to its real handler, data destination, executed test and result. Supply screenshots actually captured with synthetic writing and a short cold-launch → write → seal recording when supported.
+
+Final report. Mark each feature Local verified, Emulator verified, Live staging verified, Failed, or Awaiting setup, with the observed result or exact blocker. Explicitly distinguish hardware checks and language reviews that still need a person. Include one reproducible demo from English draft → Banglish → sealed letter → reopened archive → selected-version PNG, and one denied cross-account read. Keep Message in a Bottle and Voice to Mini-Film for a later release. A release claim must point to an executed check.
