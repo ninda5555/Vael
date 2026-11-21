@@ -1,6 +1,6 @@
 {
-  "name": "UNSENT",
-  "description": "A quiet, privacy-first space for unsent letters, 9:16 feeling cards, and a deterministic zodiac and lunar writing almanac.",
+  "name": "Veyl",
+  "description": "A quiet spiritual practice, self-enquiry, private unsent letters, 9:16 feeling cards, and deterministic lunar & zodiac almanac app.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
